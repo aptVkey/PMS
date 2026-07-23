@@ -131,7 +131,7 @@ export async function saveRoom(
     return { error: "Não foi possível guardar o quarto. Tenta novamente." };
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 
@@ -171,7 +171,7 @@ export async function deleteRoom(
     }
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 
@@ -244,7 +244,7 @@ export async function saveTypology(
     return { error: "Não foi possível guardar a tipologia. Tenta novamente." };
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 
@@ -279,7 +279,7 @@ export async function deleteTypology(
     return { error: "Não foi possível eliminar a tipologia. Tenta novamente." };
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 
@@ -310,7 +310,7 @@ export async function createProperty(
     return { error: "Não foi possível criar o alojamento. Tenta novamente." };
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { propertyId: data.id };
 }
 
@@ -348,7 +348,7 @@ export async function updateProperty(
     return { error: "Não foi possível guardar. Tenta novamente." };
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   revalidatePath("/");
   return { success: true };
 }
@@ -401,7 +401,7 @@ export async function deleteProperty(
     }
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 
@@ -466,6 +466,6 @@ export async function createTypologiesWithUnits(
     }
   }
 
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }

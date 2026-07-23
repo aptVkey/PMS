@@ -27,12 +27,16 @@ export function ReservasClient({
   guests,
   ratePeriods,
   dailyPrices,
+  initialView = "calendario",
+  lockView = false,
 }: {
   bookings: Booking[];
   rooms: Room[];
   guests: Guest[];
   ratePeriods: RoomRatePeriod[];
   dailyPrices: RoomDailyPrice[];
+  initialView?: View;
+  lockView?: boolean;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -41,7 +45,7 @@ export function ReservasClient({
     start: null,
     end: null,
   });
-  const [view, setView] = useState<View>("calendario");
+  const [view, setView] = useState<View>(initialView);
 
   const filteredBookings = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -83,32 +87,34 @@ export function ReservasClient({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex rounded-md border border-border p-0.5">
-            <button
-              type="button"
-              onClick={() => setView("calendario")}
-              className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard ${
-                view === "calendario"
-                  ? "bg-surface-2 text-primary"
-                  : "text-ink-muted hover:bg-surface-1"
-              }`}
-            >
-              <CalendarDays className="h-4 w-4" strokeWidth={2} />
-              Calendário
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("lista")}
-              className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard ${
-                view === "lista"
-                  ? "bg-surface-2 text-primary"
-                  : "text-ink-muted hover:bg-surface-1"
-              }`}
-            >
-              <List className="h-4 w-4" strokeWidth={2} />
-              Lista
-            </button>
-          </div>
+          {!lockView && (
+            <div className="flex rounded-md border border-border p-0.5">
+              <button
+                type="button"
+                onClick={() => setView("calendario")}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard ${
+                  view === "calendario"
+                    ? "bg-surface-2 text-primary"
+                    : "text-ink-muted hover:bg-surface-1"
+                }`}
+              >
+                <CalendarDays className="h-4 w-4" strokeWidth={2} />
+                Calendário
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("lista")}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard ${
+                  view === "lista"
+                    ? "bg-surface-2 text-primary"
+                    : "text-ink-muted hover:bg-surface-1"
+                }`}
+              >
+                <List className="h-4 w-4" strokeWidth={2} />
+                Lista
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setModalOpen(true)}

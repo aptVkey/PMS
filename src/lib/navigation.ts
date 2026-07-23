@@ -36,7 +36,7 @@ export const navSections: NavSection[] = [
     items: [
       {
         label: "Alojamentos",
-        href: "/quartos",
+        href: "/alojamentos",
         icon: BedDouble,
         permissionKeys: ["quartos"],
       },

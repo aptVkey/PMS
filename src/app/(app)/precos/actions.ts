@@ -47,7 +47,7 @@ export async function saveBaseRate(
   }
 
   revalidatePath("/precos");
-  revalidatePath("/quartos");
+  revalidatePath("/alojamentos");
   return { success: true };
 }
 

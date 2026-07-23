@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/login"];
 
 const PATH_PERMISSIONS: Record<string, string[]> = {
-  "/quartos": ["quartos"],
+  "/alojamentos": ["quartos"],
   "/precos": ["quartos"],
   "/equipas": ["equipas", "limpeza", "manutencao"],
   "/regras": ["regras"],
