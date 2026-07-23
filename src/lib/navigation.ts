@@ -8,7 +8,6 @@ import {
   Workflow,
   BarChart3,
   Plug,
-  Tag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,12 +37,6 @@ export const navSections: NavSection[] = [
         label: "Alojamentos",
         href: "/alojamentos",
         icon: BedDouble,
-        permissionKeys: ["quartos"],
-      },
-      {
-        label: "Preços e tarifas",
-        href: "/precos",
-        icon: Tag,
         permissionKeys: ["quartos"],
       },
       {

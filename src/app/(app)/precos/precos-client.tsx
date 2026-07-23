@@ -325,11 +325,13 @@ export function PrecosClient({
   periods,
   dailyPrices,
   bookings,
+  hideHeader = false,
 }: {
   rooms: Room[];
   periods: RoomRatePeriod[];
   dailyPrices: RoomDailyPrice[];
   bookings: Pick<Booking, "room_id" | "check_in" | "check_out" | "status">[];
+  hideHeader?: boolean;
 }) {
   const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id ?? "");
 
@@ -351,14 +353,18 @@ export function PrecosClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[24px] font-bold text-ink">Preços e tarifas</h1>
-          <p className="mt-1 max-w-xl text-body text-ink-muted">
-            Define o preço base e tarifas sazonais para cada quarto. As
-            reservas usam automaticamente a tarifa correta para as datas
-            escolhidas.
-          </p>
-        </div>
+        {hideHeader ? (
+          <div />
+        ) : (
+          <div>
+            <h1 className="text-[24px] font-bold text-ink">Preços e tarifas</h1>
+            <p className="mt-1 max-w-xl text-body text-ink-muted">
+              Define o preço base e tarifas sazonais para cada quarto. As
+              reservas usam automaticamente a tarifa correta para as datas
+              escolhidas.
+            </p>
+          </div>
+        )}
 
         {rooms.length > 0 && selectedRoom && (
           <div className="flex flex-col items-end gap-2">

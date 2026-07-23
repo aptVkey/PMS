@@ -5,7 +5,6 @@ const PUBLIC_PATHS = ["/login"];
 
 const PATH_PERMISSIONS: Record<string, string[]> = {
   "/alojamentos": ["quartos"],
-  "/precos": ["quartos"],
   "/equipas": ["equipas", "limpeza", "manutencao"],
   "/regras": ["regras"],
   "/hospedes": ["hospedes"],

@@ -29,6 +29,7 @@ export function ReservasClient({
   dailyPrices,
   initialView = "calendario",
   lockView = false,
+  hideHeader = false,
 }: {
   bookings: Booking[];
   rooms: Room[];
@@ -37,6 +38,7 @@ export function ReservasClient({
   dailyPrices: RoomDailyPrice[];
   initialView?: View;
   lockView?: boolean;
+  hideHeader?: boolean;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -78,14 +80,18 @@ export function ReservasClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[24px] font-bold text-ink">
-            Reservas e pagamentos
-          </h1>
-          <p className="mt-1 text-body text-ink-muted">
-            Gere reservas, cobranças e o estado dos pagamentos.
-          </p>
-        </div>
+        {hideHeader ? (
+          <div />
+        ) : (
+          <div>
+            <h1 className="text-[24px] font-bold text-ink">
+              Reservas e pagamentos
+            </h1>
+            <p className="mt-1 text-body text-ink-muted">
+              Gere reservas, cobranças e o estado dos pagamentos.
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           {!lockView && (
             <div className="flex rounded-md border border-border p-0.5">

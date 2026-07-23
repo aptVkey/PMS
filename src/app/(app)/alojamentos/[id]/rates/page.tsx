@@ -50,6 +50,7 @@ export default async function RatesPage({
           "room_id" | "check_in" | "check_out" | "status"
         >[]) ?? []
       }
+      hideHeader
     />
   );
 }

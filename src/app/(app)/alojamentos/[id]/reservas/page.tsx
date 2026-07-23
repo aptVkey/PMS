@@ -43,6 +43,7 @@ export default async function AlojamentoReservasPage({
       dailyPrices={(dailyPrices as RoomDailyPrice[]) ?? []}
       initialView="lista"
       lockView
+      hideHeader
     />
   );
 }
