@@ -352,10 +352,44 @@ export function PrecosClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        {hideHeader ? (
-          <div />
-        ) : (
+      {hideHeader ? (
+        rooms.length > 0 &&
+        selectedRoom && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-1 px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <BedDouble
+                className="h-4 w-4 shrink-0 text-ink-muted"
+                strokeWidth={2}
+              />
+              <label
+                htmlFor="roomSelect"
+                className="text-body font-semibold text-ink"
+              >
+                Quarto
+              </label>
+              <select
+                id="roomSelect"
+                aria-label="Quarto"
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
+                className={`${inputClasses} sm:min-w-[200px]`}
+              >
+                {rooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <TodayPriceBadge
+              room={selectedRoom}
+              periods={selectedRoomPeriods}
+              dailyPrices={selectedRoomDailyPrices}
+            />
+          </div>
+        )
+      ) : (
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-[24px] font-bold text-ink">Preços e tarifas</h1>
             <p className="mt-1 max-w-xl text-body text-ink-muted">
@@ -364,31 +398,30 @@ export function PrecosClient({
               escolhidas.
             </p>
           </div>
-        )}
 
-        {rooms.length > 0 && selectedRoom && (
-          <div className="flex flex-col items-end gap-2">
-            <select
-              id="roomSelect"
-              aria-label="Quarto"
-              value={selectedRoomId}
-              onChange={(e) => setSelectedRoomId(e.target.value)}
-              className={`${inputClasses} sm:min-w-[220px]`}
-            >
-              {rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
-            <TodayPriceBadge
-              room={selectedRoom}
-              periods={selectedRoomPeriods}
-              dailyPrices={selectedRoomDailyPrices}
-            />
-          </div>
-        )}
-      </div>
+          {rooms.length > 0 && selectedRoom && (
+            <div className="flex flex-col items-end gap-2">
+              <select
+                aria-label="Quarto"
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
+                className={`${inputClasses} sm:min-w-[220px]`}
+              >
+                {rooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+              <TodayPriceBadge
+                room={selectedRoom}
+                periods={selectedRoomPeriods}
+                dailyPrices={selectedRoomDailyPrices}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {rooms.length === 0 || !selectedRoom ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-canvas py-16 text-center">
