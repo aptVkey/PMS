@@ -3,11 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { History, X } from "lucide-react";
 import { saveGuest, type GuestFormState } from "./actions";
-import {
-  DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  type Guest,
-} from "@/lib/guests";
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, type Guest } from "@/lib/guests";
 import {
   BOOKING_STATUS_LABELS,
   BOOKING_STATUS_STYLES,
@@ -29,10 +25,7 @@ export function GuestFormModal({
   bookings?: Booking[];
   onClose: () => void;
 }) {
-  const [state, formAction, pending] = useActionState(
-    saveGuest,
-    initialState,
-  );
+  const [state, formAction, pending] = useActionState(saveGuest, initialState);
 
   useEffect(() => {
     if (state && "success" in state) {
@@ -199,21 +192,15 @@ export function GuestFormModal({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[12px] text-ink-subdued">
-                    Última estadia
-                  </p>
+                  <p className="text-[12px] text-ink-subdued">Última estadia</p>
                   <p className="text-body font-bold text-ink">
                     {guest.last_stay_at
-                      ? new Date(guest.last_stay_at).toLocaleDateString(
-                          "pt-PT",
-                        )
+                      ? new Date(guest.last_stay_at).toLocaleDateString("pt-PT")
                       : "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[12px] text-ink-subdued">
-                    Valor médio
-                  </p>
+                  <p className="text-[12px] text-ink-subdued">Valor médio</p>
                   <p className="text-body font-bold text-ink">
                     {guest.avg_spent > 0
                       ? `${guest.avg_spent.toFixed(2)} €`
@@ -221,9 +208,7 @@ export function GuestFormModal({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[12px] text-ink-subdued">
-                    Total gasto
-                  </p>
+                  <p className="text-[12px] text-ink-subdued">Total gasto</p>
                   <p className="text-body font-bold text-ink">
                     {guest.total_spent > 0
                       ? `${guest.total_spent.toFixed(2)} €`
@@ -261,8 +246,14 @@ export function GuestFormModal({
                           {booking.room?.name ?? "—"}
                         </span>{" "}
                         <span className="text-ink-muted">
-                          · {new Date(booking.check_in).toLocaleDateString("pt-PT")}{" "}
-                          → {new Date(booking.check_out).toLocaleDateString("pt-PT")}
+                          ·{" "}
+                          {new Date(booking.check_in).toLocaleDateString(
+                            "pt-PT",
+                          )}{" "}
+                          →{" "}
+                          {new Date(booking.check_out).toLocaleDateString(
+                            "pt-PT",
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

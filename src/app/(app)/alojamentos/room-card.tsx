@@ -18,9 +18,8 @@ export function RoomCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const typologyPhoto = typologies?.find(
-    (t) => t.id === room.typology_id,
-  )?.photos[0];
+  const typologyPhoto = typologies?.find((t) => t.id === room.typology_id)
+    ?.photos[0];
   const cover = room.photos[0] ?? typologyPhoto;
   const totalGuests = room.capacity_adults + room.capacity_children;
   const totalBeds = room.bedrooms.reduce(
@@ -41,10 +40,7 @@ export function RoomCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <BedDouble
-              className="h-8 w-8 text-ink-subdued"
-              strokeWidth={1.5}
-            />
+            <BedDouble className="h-8 w-8 text-ink-subdued" strokeWidth={1.5} />
           </div>
         )}
         <span

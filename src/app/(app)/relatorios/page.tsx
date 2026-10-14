@@ -48,11 +48,14 @@ export default async function RelatoriosPage() {
       bookings={(bookings as unknown as ReportingBooking[]) ?? []}
       rooms={(rooms as { id: string; name: string }[]) ?? []}
       cleaningTasks={
-        isAdmin ? ((cleaningTasks as unknown as ReportingCleaningTask[]) ?? []) : []
+        isAdmin
+          ? ((cleaningTasks as unknown as ReportingCleaningTask[]) ?? [])
+          : []
       }
       maintenanceIssues={
         isAdmin
-          ? ((maintenanceIssues as unknown as ReportingMaintenanceIssue[]) ?? [])
+          ? ((maintenanceIssues as unknown as ReportingMaintenanceIssue[]) ??
+            [])
           : []
       }
       isAdmin={isAdmin}

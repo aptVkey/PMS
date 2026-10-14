@@ -54,7 +54,8 @@ export function PropertyWizardStep2Modal({
     }));
 
     const invalid = entries.find(
-      (entry) => entry.name.trim().length === 0 || entry.unitNumbers.length === 0,
+      (entry) =>
+        entry.name.trim().length === 0 || entry.unitNumbers.length === 0,
     );
     if (invalid) {
       setError(
@@ -153,7 +154,10 @@ export function PropertyWizardStep2Modal({
                     />
                     <p className="text-[12px] text-ink-subdued">
                       Separa os números por vírgulas. {unitCount}{" "}
-                      {unitCount === 1 ? "unidade indicada" : "unidades indicadas"}.
+                      {unitCount === 1
+                        ? "unidade indicada"
+                        : "unidades indicadas"}
+                      .
                     </p>
                   </div>
                 </div>

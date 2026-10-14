@@ -2,12 +2,14 @@ import {
   LayoutDashboard,
   BedDouble,
   ClipboardList,
-  ScrollText,
   Users,
   CalendarCheck,
   Workflow,
   BarChart3,
   Plug,
+  Package,
+  Wallet,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,12 +47,6 @@ export const navSections: NavSection[] = [
         icon: ClipboardList,
         permissionKeys: ["equipas", "limpeza", "manutencao"],
       },
-      {
-        label: "Regras locais",
-        href: "/regras",
-        icon: ScrollText,
-        permissionKeys: ["regras"],
-      },
     ],
   },
   {
@@ -85,6 +81,24 @@ export const navSections: NavSection[] = [
         href: "/integracoes",
         icon: Plug,
         permissionKeys: ["integracoes"],
+      },
+      {
+        label: "Inventário",
+        href: "/inventario",
+        icon: Package,
+        permissionKeys: ["inventario"],
+      },
+      {
+        label: "Fluxo de caixa",
+        href: "/caixa",
+        icon: Wallet,
+        permissionKeys: ["caixa"],
+      },
+      {
+        label: "Email marketing",
+        href: "/email-marketing",
+        icon: Mail,
+        permissionKeys: ["marketing"],
       },
     ],
   },

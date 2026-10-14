@@ -5,7 +5,12 @@ import { TrendingDown, TrendingUp, Wand2 } from "lucide-react";
 import type { Room } from "@/lib/rooms";
 import type { Booking } from "@/lib/bookings";
 import { applyMonthlySuggestion } from "./actions";
-import { calculateMonthOccupancy, suggestPriceAdjustment } from "@/lib/pricing";
+import {
+  calculateMonthOccupancy,
+  suggestPriceAdjustment,
+  OCCUPANCY_HIGH_THRESHOLD,
+  OCCUPANCY_LOW_THRESHOLD,
+} from "@/lib/pricing";
 import { MONTH_ABBREV } from "@/lib/date-utils";
 
 const MONTHS_AHEAD = 6;
@@ -128,6 +133,14 @@ export function PriceSuggestions({
 }) {
   const months = useMemo(() => buildUpcomingMonths(MONTHS_AHEAD), []);
 
+  // Sem reservas neste quarto, a ocupação é 0% em todos os meses e as
+  // sugestões seriam seis cartões a recomendar a mesma descida, sem base
+  // nenhuma. Mais honesto dizer que ainda não há dados.
+  const hasBookings = useMemo(
+    () => bookings.some((b) => b.room_id === room.id),
+    [bookings, room.id],
+  );
+
   return (
     <div className="flex flex-col gap-5 rounded-lg border border-border bg-canvas p-5 shadow-card">
       <div className="flex items-center gap-3">
@@ -138,24 +151,37 @@ export function PriceSuggestions({
           <p className="text-body font-bold text-ink">Sugestões de preço</p>
           <p className="text-[12px] text-ink-subdued">
             Com base na ocupação de cada mês. Ocupação acima de{" "}
-            {Math.round(0.7 * 100)}% sugere subir o preço, abaixo de{" "}
-            {Math.round(0.3 * 100)}% sugere descer. Nunca aplica sem
-            confirmares.
+            {Math.round(OCCUPANCY_HIGH_THRESHOLD * 100)}% sugere subir o preço,
+            abaixo de {Math.round(OCCUPANCY_LOW_THRESHOLD * 100)}% sugere
+            descer. Nunca aplica sem confirmares.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {months.map(({ year, month }) => (
-          <MonthSuggestionCard
-            key={`${year}-${month}`}
-            room={room}
-            year={year}
-            month={month}
-            bookings={bookings}
-          />
-        ))}
-      </div>
+      {hasBookings ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {months.map(({ year, month }) => (
+            <MonthSuggestionCard
+              key={`${year}-${month}`}
+              room={room}
+              year={year}
+              month={month}
+              bookings={bookings}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+          <Wand2 className="h-7 w-7 text-ink-subdued" strokeWidth={1.5} />
+          <p className="text-body font-semibold text-ink">
+            Ainda sem dados de ocupação
+          </p>
+          <p className="max-w-md text-[12px] text-ink-subdued">
+            As sugestões aparecem assim que este quarto tiver reservas. Sem
+            histórico não há ocupação para comparar.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -48,10 +48,35 @@ function SavedIndicator() {
   );
 }
 
-function BaseRateForm({ room }: { room: Room }) {
+// O preço que serve de base a tudo o resto. No rodapé mostra-se o que daí
+// resulta para hoje — a definição e o seu efeito no mesmo cartão.
+function BaseRateForm({
+  room,
+  periods,
+  dailyPrices,
+}: {
+  room: Room;
+  periods: RoomRatePeriod[];
+  dailyPrices: RoomDailyPrice[];
+}) {
   const [state, formAction, pending] = useActionState(
     saveBaseRate,
     initialState,
+  );
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("pt-PT", {
+        style: "currency",
+        currency: room.currency,
+      }),
+    [room.currency],
+  );
+
+  const hasBasePrice = room.base_price > 0;
+  const todayRate = useMemo(
+    () => resolveNightlyRate(todayISO(), room.base_price, periods, dailyPrices),
+    [room.base_price, periods, dailyPrices],
   );
 
   return (
@@ -62,10 +87,10 @@ function BaseRateForm({ room }: { room: Room }) {
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-2 text-primary">
           <Tag className="h-4 w-4" strokeWidth={2} />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-body font-bold text-ink">Preço base</p>
           <p className="text-[12px] text-ink-subdued">
-            Aplicado sempre que não existe um período sazonal para a data.
+            Usado quando não há período sazonal nem preço de dia.
           </p>
         </div>
       </div>
@@ -109,54 +134,37 @@ function BaseRateForm({ room }: { room: Room }) {
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3">
-        {!pending && state && "success" in state && <SavedIndicator />}
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-11 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {pending ? "A guardar..." : "Guardar preço base"}
-        </button>
+      {/* Rodapé: o valor que resulta à esquerda, a ação à direita. O mt-auto
+          encosta-o ao fundo para alinhar com o cartão ao lado. */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-2 text-primary">
+            <Coins className="h-4 w-4" strokeWidth={2} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-subdued">
+              Preço hoje
+            </p>
+            <p
+              className={`text-[24px] font-bold leading-tight ${hasBasePrice ? "text-ink" : "text-ink-subdued"}`}
+            >
+              {hasBasePrice ? currencyFormatter.format(todayRate) : "—"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {!pending && state && "success" in state && <SavedIndicator />}
+          <button
+            type="submit"
+            disabled={pending}
+            className="min-h-11 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {pending ? "A guardar..." : "Guardar"}
+          </button>
+        </div>
       </div>
     </form>
-  );
-}
-
-function TodayPriceBadge({
-  room,
-  periods,
-  dailyPrices,
-}: {
-  room: Room;
-  periods: RoomRatePeriod[];
-  dailyPrices: RoomDailyPrice[];
-}) {
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("pt-PT", {
-        style: "currency",
-        currency: room.currency,
-      }),
-    [room.currency],
-  );
-
-  const todayPrice = useMemo(
-    () =>
-      resolveNightlyRate(todayISO(), room.base_price, periods, dailyPrices),
-    [room.base_price, periods, dailyPrices],
-  );
-
-  return (
-    <div className="flex items-center gap-2.5 rounded-full border border-border bg-canvas py-2 pl-3 pr-4 shadow-card">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary">
-        <Coins className="h-3.5 w-3.5" strokeWidth={2} />
-      </div>
-      <span className="text-[12px] text-ink-subdued">Preço hoje</span>
-      <span className="text-body font-bold text-ink">
-        {currencyFormatter.format(todayPrice)}
-      </span>
-    </div>
   );
 }
 
@@ -176,9 +184,9 @@ function SeasonalPeriods({
   periods: RoomRatePeriod[];
 }) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState<RoomRatePeriod | undefined>(
-    undefined,
-  );
+  const [editingPeriod, setEditingPeriod] = useState<
+    RoomRatePeriod | undefined
+  >(undefined);
   const [deletingPeriod, setDeletingPeriod] = useState<RoomRatePeriod | null>(
     null,
   );
@@ -204,32 +212,28 @@ function SeasonalPeriods({
 
   return (
     <div className={sectionClasses}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-2 text-primary">
-            <CalendarRange className="h-4 w-4" strokeWidth={2} />
-          </div>
-          <div>
-            <p className="text-body font-bold text-ink">Períodos sazonais</p>
-            <p className="text-[12px] text-ink-subdued">
-              Tarifas diferentes para datas específicas, como época alta.
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-2 text-primary">
+          <CalendarRange className="h-4 w-4" strokeWidth={2} />
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-canvas px-4 text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Novo período
-        </button>
+        <div className="min-w-0">
+          <p className="text-body font-bold text-ink">Períodos sazonais</p>
+          <p className="text-[12px] text-ink-subdued">
+            Tarifas diferentes para datas específicas, como época alta.
+          </p>
+        </div>
       </div>
 
       {periods.length === 0 ? (
-        <p className="text-body text-ink-subdued">
-          Ainda não há períodos sazonais definidos para este quarto.
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border px-4 py-8 text-center">
+          <CalendarRange
+            className="h-7 w-7 text-ink-subdued"
+            strokeWidth={1.5}
+          />
+          <p className="text-[12px] text-ink-subdued">
+            Sem períodos definidos. Todas as datas usam o preço base.
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
           {periods.map((period) => {
@@ -300,6 +304,15 @@ function SeasonalPeriods({
           })}
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={openCreateModal}
+        className="mt-auto flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-canvas text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
+      >
+        <Plus className="h-4 w-4" strokeWidth={2} />
+        Novo período
+      </button>
 
       {modalOpen && (
         <RatePeriodFormModal
@@ -381,11 +394,6 @@ export function PrecosClient({
                 ))}
               </select>
             </div>
-            <TodayPriceBadge
-              room={selectedRoom}
-              periods={selectedRoomPeriods}
-              dailyPrices={selectedRoomDailyPrices}
-            />
           </div>
         )
       ) : (
@@ -400,25 +408,18 @@ export function PrecosClient({
           </div>
 
           {rooms.length > 0 && selectedRoom && (
-            <div className="flex flex-col items-end gap-2">
-              <select
-                aria-label="Quarto"
-                value={selectedRoomId}
-                onChange={(e) => setSelectedRoomId(e.target.value)}
-                className={`${inputClasses} sm:min-w-[220px]`}
-              >
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
-                ))}
-              </select>
-              <TodayPriceBadge
-                room={selectedRoom}
-                periods={selectedRoomPeriods}
-                dailyPrices={selectedRoomDailyPrices}
-              />
-            </div>
+            <select
+              aria-label="Quarto"
+              value={selectedRoomId}
+              onChange={(e) => setSelectedRoomId(e.target.value)}
+              className={`${inputClasses} sm:min-w-[220px]`}
+            >
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       )}
@@ -430,14 +431,18 @@ export function PrecosClient({
             Ainda não tens quartos
           </p>
           <p className="max-w-sm text-body text-ink-subdued">
-            Adiciona quartos em Alojamentos para definires os preços
-            de cada um.
+            Adiciona quartos em Alojamentos para definires os preços de cada um.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr] xl:items-start">
-          <div className="flex flex-col gap-6">
-            <BaseRateForm key={selectedRoom.id} room={selectedRoom} />
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <BaseRateForm
+              key={selectedRoom.id}
+              room={selectedRoom}
+              periods={selectedRoomPeriods}
+              dailyPrices={selectedRoomDailyPrices}
+            />
 
             <SeasonalPeriods
               room={selectedRoom}
@@ -445,15 +450,13 @@ export function PrecosClient({
             />
           </div>
 
-          <div className="flex flex-col gap-6">
-            <PriceSuggestions room={selectedRoom} bookings={bookings} />
+          <PriceCalendar
+            room={selectedRoom}
+            periods={selectedRoomPeriods}
+            dailyPrices={selectedRoomDailyPrices}
+          />
 
-            <PriceCalendar
-              room={selectedRoom}
-              periods={selectedRoomPeriods}
-              dailyPrices={selectedRoomDailyPrices}
-            />
-          </div>
+          <PriceSuggestions room={selectedRoom} bookings={bookings} />
         </div>
       )}
     </div>

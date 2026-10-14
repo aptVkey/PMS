@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarCheck, CalendarDays, List, Plus, Search } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarCheck,
+  CalendarDays,
+  List,
+  Plus,
+  Search,
+} from "lucide-react";
 import {
   BOOKING_STATUSES,
   BOOKING_STATUS_LABELS,
@@ -11,6 +19,7 @@ import {
 import type { Room } from "@/lib/rooms";
 import type { Guest } from "@/lib/guests";
 import type { RoomDailyPrice, RoomRatePeriod } from "@/lib/pricing";
+import { todayISO } from "@/lib/date-utils";
 import { BookingRow } from "./booking-row";
 import { BookingFormModal } from "./booking-form-modal";
 import { BookingsCalendar } from "./bookings-calendar";
@@ -48,10 +57,14 @@ export function ReservasClient({
     end: null,
   });
   const [view, setView] = useState<View>(initialView);
+  // "asc" = próximas primeiro (a partir de hoje); "desc" é o inverso. Não é
+  // uma ordenação cronológica cega, senão com 3 anos de histórico importado
+  // a lista abria sempre numa reserva de 2023 em vez do que interessa agora.
+  const [checkInSort, setCheckInSort] = useState<"asc" | "desc">("asc");
 
   const filteredBookings = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return bookings.filter((booking) => {
+    const filtered = bookings.filter((booking) => {
       const matchesQuery =
         normalizedQuery === "" ||
         booking.guest?.name.toLowerCase().includes(normalizedQuery) ||
@@ -69,7 +82,27 @@ export function ReservasClient({
 
       return matchesQuery && matchesStatus && matchesDate;
     });
-  }, [bookings, query, statusFilter, dateRange]);
+
+    const today = todayISO();
+
+    return [...filtered].sort((a, b) => {
+      const aFuture = a.check_in >= today;
+      const bFuture = b.check_in >= today;
+      // Futuras sempre antes de passadas; dentro de cada grupo, futuras da
+      // mais próxima para a mais distante e passadas da mais recente para a
+      // mais antiga — em ambos os casos, o que está mais perto de hoje
+      // aparece primeiro.
+      let cmp: number;
+      if (aFuture !== bFuture) {
+        cmp = aFuture ? -1 : 1;
+      } else if (aFuture) {
+        cmp = a.check_in.localeCompare(b.check_in);
+      } else {
+        cmp = b.check_in.localeCompare(a.check_in);
+      }
+      return checkInSort === "asc" ? cmp : -cmp;
+    });
+  }, [bookings, query, statusFilter, dateRange, checkInSort]);
 
   const hasFilters =
     query !== "" ||
@@ -212,7 +245,24 @@ export function ReservasClient({
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Hóspede</th>
                     <th className="px-4 py-3">Quarto</th>
-                    <th className="px-4 py-3">Datas</th>
+                    <th className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCheckInSort((prev) =>
+                            prev === "asc" ? "desc" : "asc",
+                          )
+                        }
+                        className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued hover:text-ink"
+                      >
+                        Datas (check-in)
+                        {checkInSort === "asc" ? (
+                          <ArrowUp className="h-3 w-3" strokeWidth={2.5} />
+                        ) : (
+                          <ArrowDown className="h-3 w-3" strokeWidth={2.5} />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-4 py-3">Pessoas</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Pago / Total</th>

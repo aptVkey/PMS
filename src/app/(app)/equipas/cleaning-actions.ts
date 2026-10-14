@@ -3,25 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionPermissions, requirePermission } from "@/lib/permissions";
 import { CLEANING_STATUSES } from "@/lib/cleaning";
-
-async function getRequestPermissions(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { userId: null, permissions: [] as string[] };
-
-  const { data: staffRow } = await supabase
-    .from("staff")
-    .select("permissions")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return { userId: user.id, permissions: (staffRow?.permissions as string[]) ?? [] };
-}
 
 const CleaningTaskSchema = z.object({
   roomId: z.string().min(1, { error: "Escolhe um quarto." }),
@@ -31,14 +14,15 @@ const CleaningTaskSchema = z.object({
 });
 
 export type CleaningTaskFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+  { error: string } | { success: true } | undefined;
 
 export async function createCleaningTask(
   _prevState: CleaningTaskFormState,
   formData: FormData,
 ): Promise<CleaningTaskFormState> {
+  const denied = await requirePermission("equipas", "limpeza");
+  if (denied) return denied;
+
   const parsed = CleaningTaskSchema.safeParse({
     roomId: formData.get("roomId"),
     taskDate: formData.get("taskDate"),
@@ -47,7 +31,10 @@ export async function createCleaningTask(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
@@ -79,6 +66,9 @@ export async function updateCleaningTaskDetails(
   _prevState: CleaningTaskFormState,
   formData: FormData,
 ): Promise<CleaningTaskFormState> {
+  const denied = await requirePermission("equipas", "limpeza");
+  if (denied) return denied;
+
   const parsed = EditCleaningTaskSchema.safeParse({
     id: formData.get("id"),
     roomId: formData.get("roomId") || undefined,
@@ -103,7 +93,9 @@ export async function updateCleaningTaskDetails(
     .eq("id", parsed.data.id);
 
   if (error) {
-    return { error: "Não foi possível guardar as alterações. Tenta novamente." };
+    return {
+      error: "Não foi possível guardar as alterações. Tenta novamente.",
+    };
   }
 
   revalidatePath("/equipas");
@@ -118,13 +110,13 @@ export async function setCleaningTaskStatus(
     return { error: "Estado inválido." };
   }
 
-  const supabase = await createClient();
-  const { userId, permissions } = await getRequestPermissions(supabase);
+  const { userId, permissions } = await getSessionPermissions();
 
   if (!userId) {
     return { error: "Sessão inválida. Inicia sessão novamente." };
   }
 
+  const supabase = await createClient();
   const { data: task } = await supabase
     .from("cleaning_tasks")
     .select("assigned_to")
@@ -160,8 +152,7 @@ export async function setCleaningTaskAssignee(
   taskId: string,
   staffId: string | null,
 ): Promise<{ error: string } | { success: true }> {
-  const supabase = await createClient();
-  const { permissions } = await getRequestPermissions(supabase);
+  const { permissions } = await getSessionPermissions();
 
   if (!permissions.includes("equipas") && !permissions.includes("limpeza")) {
     return {
@@ -170,6 +161,7 @@ export async function setCleaningTaskAssignee(
     };
   }
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("cleaning_tasks")
     .update({ assigned_to: staffId })
@@ -186,12 +178,35 @@ export async function setCleaningTaskAssignee(
 export async function deleteCleaningTask(
   taskId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("equipas", "limpeza");
+  if (denied) return denied;
+
   const supabase = await createClient();
+
+  // As tarefas de checkout são geridas pelo trigger sync_checkout_cleaning_task
+  // e desaparecem sozinhas se a reserva for cancelada. Antes o delete filtrava
+  // por source = 'manual' e devolvia sucesso sem apagar nada.
+  const { data: task } = await supabase
+    .from("cleaning_tasks")
+    .select("source")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (!task) {
+    return { error: "Tarefa não encontrada." };
+  }
+
+  if (task.source !== "manual") {
+    return {
+      error:
+        "Esta tarefa foi criada automaticamente pelo checkout da reserva e não pode ser removida à mão.",
+    };
+  }
+
   const { error } = await supabase
     .from("cleaning_tasks")
     .delete()
-    .eq("id", taskId)
-    .eq("source", "manual");
+    .eq("id", taskId);
 
   if (error) {
     return { error: "Não foi possível remover a tarefa. Tenta novamente." };

@@ -114,7 +114,10 @@ export function RatePeriodFormModal({
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="sundayRate" className="text-[12px] text-ink-subdued">
+              <label
+                htmlFor="sundayRate"
+                className="text-[12px] text-ink-subdued"
+              >
                 Domingo
               </label>
               <input
@@ -130,7 +133,10 @@ export function RatePeriodFormModal({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="weekdayRate" className="text-[12px] text-ink-subdued">
+              <label
+                htmlFor="weekdayRate"
+                className="text-[12px] text-ink-subdued"
+              >
                 Segunda a Quinta
               </label>
               <input
@@ -146,7 +152,10 @@ export function RatePeriodFormModal({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="weekendRate" className="text-[12px] text-ink-subdued">
+              <label
+                htmlFor="weekendRate"
+                className="text-[12px] text-ink-subdued"
+              >
                 Sexta e Sábado
               </label>
               <input

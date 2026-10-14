@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { BOOKING_STATUS_LABELS, type Booking, type BookingStatus } from "@/lib/bookings";
+import {
+  BOOKING_STATUS_LABELS,
+  type Booking,
+  type BookingStatus,
+} from "@/lib/bookings";
 import type { Room } from "@/lib/rooms";
 import type { Guest } from "@/lib/guests";
 import type { RoomDailyPrice, RoomRatePeriod } from "@/lib/pricing";
@@ -77,12 +81,19 @@ export function BookingsCalendar({
   const firstDate = days[0]?.date;
   const lastDate = days[days.length - 1]?.date;
 
-  // Each day is split into 2 grid sub-columns (morning/afternoon) so a
-  // booking's bar can start at the middle of its check-in day (arrival is
-  // in the afternoon) and end at the middle of its check-out day (departure
-  // is in the morning). This makes same-day turnovers visible: the outgoing
-  // bar ends and the incoming bar begins at the same halfway point instead
-  // of the check-out day looking like a plain, ambiguous empty/occupied day.
+  // Todas as linhas (cabeçalho + cada quarto) vivem na MESMA grelha CSS, com
+  // uma única definição de colunas. Antes cada linha tinha a sua própria
+  // grelha independente — visualmente pareciam iguais, mas nada garantia que
+  // o browser resolvesse exatamente os mesmos limites de coluna em cada uma,
+  // e a linha do cabeçalho desalinhava da coluna fixa "Quarto" ao fazer
+  // scroll horizontal (só as linhas de baixo tinham sticky left). Com uma
+  // grelha só, o alinhamento entre cabeçalho e linhas é garantido pela
+  // própria estrutura, não por coincidência.
+  //
+  // Coluna 1 = nome do quarto (sticky). Colunas 2..(1+dias*2) = meios-dias,
+  // 2 por dia (para a barra da reserva poder começar a meio do dia de
+  // check-in e acabar a meio do dia de check-out, tornando visível uma
+  // troca no mesmo dia).
   function barRangeFor(booking: Booking) {
     if (!firstDate || !lastDate) return null;
     if (booking.check_out <= firstDate || booking.check_in > lastDate) {
@@ -91,27 +102,27 @@ export function BookingsCalendar({
 
     let startLine: number;
     if (booking.check_in < firstDate) {
-      startLine = 1;
+      startLine = 2;
     } else {
       const startIdx = days.findIndex((d) => d.date === booking.check_in);
       if (startIdx === -1) return null;
-      startLine = 2 * startIdx + 2;
+      startLine = 2 * startIdx + 3;
     }
 
     let endLine: number;
     if (booking.check_out > lastDate) {
-      endLine = days.length * 2 + 1;
+      endLine = days.length * 2 + 2;
     } else {
       const endIdx = days.findIndex((d) => d.date === booking.check_out);
       if (endIdx === -1) return null;
-      endLine = 2 * endIdx + 2;
+      endLine = 2 * endIdx + 3;
     }
 
     if (endLine <= startLine) return null;
     return { startLine, endLine };
   }
 
-  const gridTemplateColumns = `repeat(${days.length * 2}, minmax(${MIN_HALF_DAY_WIDTH}px, 1fr))`;
+  const gridTemplateColumns = `${ROOM_COL_WIDTH}px repeat(${days.length * 2}, minmax(${MIN_HALF_DAY_WIDTH}px, 1fr))`;
 
   if (rooms.length === 0) {
     return (
@@ -190,122 +201,119 @@ export function BookingsCalendar({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-canvas shadow-card">
-        <div className="min-w-full">
-          <div className="flex border-b border-border bg-surface-1">
-            <div
-              style={{ width: ROOM_COL_WIDTH }}
-              className="shrink-0 px-3 py-2 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued"
-            >
-              Quarto
-            </div>
-            <div
-              className="grid flex-1"
-              style={{ gridTemplateColumns }}
-            >
-              {days.map((d) => (
-                <div
-                  key={d.date}
-                  className={`col-span-2 border-l border-border py-2 text-center text-[11px] ${
-                    d.date === today
-                      ? "bg-surface-2 font-bold text-primary"
-                      : d.isWeekend
-                        ? "bg-surface-1 text-ink-subdued"
-                        : "text-ink-subdued"
-                  }`}
-                >
-                  <div>{WEEKDAY_LABELS[d.weekday]}</div>
-                  <div>{d.day}</div>
-                </div>
-              ))}
-            </div>
+        <div className="grid min-w-full" style={{ gridTemplateColumns }}>
+          {/* Cabeçalho */}
+          <div
+            style={{ gridColumn: 1, gridRow: 1 }}
+            className="sticky left-0 z-20 flex shrink-0 items-center border-b border-border bg-surface-1 px-3 py-2 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued"
+          >
+            Quarto
           </div>
+          {days.map((d, i) => (
+            <div
+              key={d.date}
+              style={{ gridColumn: `${2 * i + 2} / ${2 * i + 4}`, gridRow: 1 }}
+              className={`border-b border-l border-border py-2 text-center text-[11px] ${
+                d.date === today
+                  ? "bg-surface-2 font-bold text-primary"
+                  : "bg-surface-1 text-ink-subdued"
+              }`}
+            >
+              <div>{WEEKDAY_LABELS[d.weekday]}</div>
+              <div>{d.day}</div>
+            </div>
+          ))}
 
-          {rooms.map((room) => {
+          {/* Linhas de cada quarto */}
+          {rooms.map((room, roomIdx) => {
+            const roomRow = roomIdx + 2;
             const roomBookings = bookings.filter(
               (b) => b.room_id === room.id && b.status !== "cancelada",
             );
-            const checkoutDates = new Set(
-              roomBookings.map((b) => b.check_out),
-            );
+            const checkoutDates = new Set(roomBookings.map((b) => b.check_out));
             const turnoverDates = roomBookings
               .map((b) => b.check_in)
               .filter(
                 (date, i, arr) =>
                   checkoutDates.has(date) && arr.indexOf(date) === i,
               );
+            const isLastRoom = roomIdx === rooms.length - 1;
 
             return (
-              <div
-                key={room.id}
-                className="flex border-b border-border last:border-0"
-                style={{ height: ROW_HEIGHT }}
-              >
+              <div key={room.id} style={{ display: "contents" }}>
                 <div
-                  style={{ width: ROOM_COL_WIDTH }}
-                  className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-canvas px-3 text-body font-semibold text-ink"
+                  style={{
+                    gridColumn: 1,
+                    gridRow: roomRow,
+                    height: ROW_HEIGHT,
+                  }}
+                  className={`sticky left-0 z-10 flex shrink-0 items-center border-r bg-canvas px-3 text-body font-semibold text-ink ${
+                    isLastRoom ? "" : "border-b"
+                  } border-border`}
                 >
                   <span className="truncate">{room.name}</span>
                 </div>
-                <div
-                  className="relative grid h-full flex-1"
-                  style={{ gridTemplateColumns }}
-                >
-                  {days.map((d) => (
+
+                {days.map((d, i) => (
+                  <button
+                    key={d.date}
+                    type="button"
+                    onClick={() =>
+                      setPendingCreate({
+                        roomId: room.id,
+                        checkIn: d.date,
+                        checkOut: addDaysISO(d.date, 1),
+                      })
+                    }
+                    aria-label={`Adicionar reserva em ${room.name} a ${d.date}`}
+                    style={{
+                      gridColumn: `${2 * i + 2} / ${2 * i + 4}`,
+                      gridRow: roomRow,
+                      height: ROW_HEIGHT,
+                    }}
+                    className={`border-l transition-colors duration-fast ease-standard hover:bg-surface-1 ${
+                      isLastRoom ? "" : "border-b"
+                    } border-border ${d.date === today ? "bg-surface-2" : ""}`}
+                  />
+                ))}
+
+                {roomBookings.map((booking) => {
+                  const range = barRangeFor(booking);
+                  if (!range) return null;
+                  return (
                     <button
-                      key={d.date}
+                      key={booking.id}
                       type="button"
-                      onClick={() =>
-                        setPendingCreate({
-                          roomId: room.id,
-                          checkIn: d.date,
-                          checkOut: addDaysISO(d.date, 1),
-                        })
-                      }
-                      aria-label={`Adicionar reserva em ${room.name} a ${d.date}`}
-                      className={`col-span-2 h-full border-l border-border transition-colors duration-fast ease-standard hover:bg-surface-1 ${
-                        d.date === today ? "bg-surface-2" : ""
-                      }`}
-                    />
-                  ))}
+                      onClick={() => setEditingBooking(booking)}
+                      style={{
+                        gridColumn: `${range.startLine} / ${range.endLine}`,
+                        gridRow: roomRow,
+                      }}
+                      className={`relative z-[1] my-1.5 mx-0.5 self-center overflow-hidden truncate rounded-md px-2 py-1.5 text-left text-[12px] font-semibold shadow-card ${BAR_STYLES[booking.status]}`}
+                      title={`${booking.guest?.name ?? ""} · ${BOOKING_STATUS_LABELS[booking.status]}`}
+                    >
+                      {booking.guest?.name ?? "—"}
+                    </button>
+                  );
+                })}
 
-                  {roomBookings.map((booking) => {
-                    const range = barRangeFor(booking);
-                    if (!range) return null;
-                    return (
-                      <button
-                        key={booking.id}
-                        type="button"
-                        onClick={() => setEditingBooking(booking)}
-                        style={{
-                          gridColumn: `${range.startLine} / ${range.endLine}`,
-                          gridRow: 1,
-                        }}
-                        className={`relative z-[1] my-1.5 mx-0.5 overflow-hidden truncate rounded-md px-2 text-left text-[12px] font-semibold shadow-card ${BAR_STYLES[booking.status]}`}
-                        title={`${booking.guest?.name ?? ""} · ${BOOKING_STATUS_LABELS[booking.status]}`}
-                      >
-                        {booking.guest?.name ?? "—"}
-                      </button>
-                    );
-                  })}
-
-                  {turnoverDates.map((date) => {
-                    const idx = days.findIndex((d) => d.date === date);
-                    if (idx === -1) return null;
-                    return (
-                      <div
-                        key={`turnover-${date}`}
-                        style={{
-                          gridColumn: `${2 * idx + 1} / ${2 * idx + 3}`,
-                          gridRow: 1,
-                        }}
-                        className="pointer-events-none relative z-[2] flex items-center justify-center"
-                        title="Checkout e check-in no mesmo dia"
-                      >
-                        <span className="h-3.5 w-3.5 rotate-45 rounded-[3px] border-2 border-canvas bg-highlight shadow-card" />
-                      </div>
-                    );
-                  })}
-                </div>
+                {turnoverDates.map((date) => {
+                  const idx = days.findIndex((d) => d.date === date);
+                  if (idx === -1) return null;
+                  return (
+                    <div
+                      key={`turnover-${date}`}
+                      style={{
+                        gridColumn: `${2 * idx + 2} / ${2 * idx + 4}`,
+                        gridRow: roomRow,
+                      }}
+                      className="pointer-events-none relative z-[2] flex items-center justify-center"
+                      title="Checkout e check-in no mesmo dia"
+                    >
+                      <span className="h-3.5 w-3.5 rotate-45 rounded-[3px] border-2 border-canvas bg-highlight shadow-card" />
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

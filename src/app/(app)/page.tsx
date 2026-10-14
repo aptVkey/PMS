@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO, formatDateLabel, formatISO, todayISO } from "@/lib/date-utils";
+import { formatDateLabel, todayISO } from "@/lib/date-utils";
 import {
   BOOKING_STATUS_LABELS,
   BOOKING_STATUS_STYLES,
@@ -26,34 +26,40 @@ import {
 const UPCOMING_BOOKINGS_LIMIT = 5;
 const PENDING_TASKS_LIMIT = 6;
 
+// Devolvido por public.dashboard_metrics(date).
+type DashboardMetrics = {
+  total_rooms: number;
+  occupied_today: number;
+  check_ins_today: number;
+  check_outs_today: number;
+  monthly_revenue: number;
+};
+
+type UpcomingBooking = Pick<Booking, "id" | "check_in" | "status"> & {
+  room: { name: string } | null;
+  guest: { name: string } | null;
+};
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const today = todayISO();
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const monthStart = formatISO(year, month - 1, 1);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const monthEndExclusive = addDaysISO(
-    formatISO(year, month - 1, daysInMonth),
-    1,
-  );
-
   const [
-    { data: rooms },
-    { data: bookingsData },
+    { data: metricsData },
+    { data: upcomingData },
     { data: cleaningTasksData },
     { data: maintenanceIssuesData },
   ] = await Promise.all([
-    supabase.from("rooms").select("id"),
+    // Os KPIs são agregados em SQL — antes esta página carregava todas as
+    // reservas não canceladas com os pagamentos em join só para os contar.
+    supabase.rpc("dashboard_metrics", { p_today: today }),
     supabase
       .from("bookings")
-      .select(
-        "*, room:rooms(name), guest:guests(name), payments(amount, paid_at)",
-      )
+      .select("id, check_in, status, room:rooms(name), guest:guests(name)")
       .neq("status", "cancelada")
-      .order("check_in"),
+      .gte("check_in", today)
+      .order("check_in")
+      .limit(UPCOMING_BOOKINGS_LIMIT),
     supabase
       .from("cleaning_tasks")
       .select("*, room:rooms(name), assignee:staff(name)")
@@ -68,28 +74,15 @@ export default async function DashboardPage() {
       .limit(PENDING_TASKS_LIMIT),
   ]);
 
-  const bookings = (bookingsData as unknown as Booking[]) ?? [];
-  const totalRooms = rooms?.length ?? 0;
-
-  const occupiedToday = bookings.filter(
-    (b) => b.check_in <= today && b.check_out > today,
-  ).length;
+  const metrics = (metricsData as DashboardMetrics[] | null)?.[0];
+  const totalRooms = metrics?.total_rooms ?? 0;
+  const occupiedToday = metrics?.occupied_today ?? 0;
   const occupancyPercent =
     totalRooms > 0 ? Math.round((occupiedToday / totalRooms) * 100) : 0;
 
-  const checkInsToday = bookings.filter((b) => b.check_in === today).length;
-  const checkOutsToday = bookings.filter((b) => b.check_out === today).length;
-
-  const monthlyRevenue = bookings.reduce((sum, booking) => {
-    const payments = booking.payments ?? [];
-    const paidThisMonth = payments
-      .filter((p) => {
-        const paidDate = p.paid_at.slice(0, 10);
-        return paidDate >= monthStart && paidDate < monthEndExclusive;
-      })
-      .reduce((s, p) => s + p.amount, 0);
-    return sum + paidThisMonth;
-  }, 0);
+  const checkInsToday = metrics?.check_ins_today ?? 0;
+  const checkOutsToday = metrics?.check_outs_today ?? 0;
+  const monthlyRevenue = Number(metrics?.monthly_revenue ?? 0);
 
   const currencyFormatter = new Intl.NumberFormat("pt-PT", {
     style: "currency",
@@ -108,9 +101,7 @@ export default async function DashboardPage() {
     },
   ];
 
-  const upcomingBookings = bookings
-    .filter((b) => b.check_in >= today)
-    .slice(0, UPCOMING_BOOKINGS_LIMIT);
+  const upcomingBookings = (upcomingData as unknown as UpcomingBooking[]) ?? [];
 
   const cleaningTasks = (cleaningTasksData as unknown as CleaningTask[]) ?? [];
   const maintenanceIssues =

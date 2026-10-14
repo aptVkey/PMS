@@ -35,10 +35,7 @@ function DeletePaymentButton({ paymentId }: { paymentId: string }) {
 }
 
 export function PaymentsSection({ booking }: { booking: Booking }) {
-  const [state, formAction, pending] = useActionState(
-    addPayment,
-    initialState,
-  );
+  const [state, formAction, pending] = useActionState(addPayment, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

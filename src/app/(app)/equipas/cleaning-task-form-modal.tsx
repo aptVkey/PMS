@@ -64,8 +64,8 @@ export function CleaningTaskFormModal({
 
           {!isManual && (
             <p className="rounded-md bg-surface-1 px-3 py-2 text-[12px] text-ink-subdued">
-              Esta tarefa está associada a uma reserva. O quarto e a data
-              seguem o checkout da reserva.
+              Esta tarefa está associada a uma reserva. O quarto e a data seguem
+              o checkout da reserva.
             </p>
           )}
 
@@ -169,7 +169,11 @@ export function CleaningTaskFormModal({
                 disabled={pending}
                 className="min-h-11 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending ? "A guardar..." : task ? "Guardar alterações" : "Criar tarefa"}
+                {pending
+                  ? "A guardar..."
+                  : task
+                    ? "Guardar alterações"
+                    : "Criar tarefa"}
               </button>
             </div>
           </div>

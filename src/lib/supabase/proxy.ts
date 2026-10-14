@@ -1,17 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login"];
+// "/p" é a página pública de cada alojamento: reserva direta, sem sessão.
+// O webhook do Stripe também chega sem sessão e seria redirecionado para
+// /login — a assinatura é o que o autentica, não um cookie.
+// O motor de automação também chega sem sessão (chamado pelo pg_cron) — é o
+// segredo partilhado que o autentica, não um cookie, tal como o webhook da
+// Stripe. A sincronização iCal é a mesma história (chamada pelo pg_cron), e a
+// exportação iCal é pedida diretamente pelo servidor da Booking.com/Airbnb,
+// que nunca tem sessão nenhuma.
+const PUBLIC_PATHS = [
+  "/login",
+  "/p/",
+  "/site",
+  "/api/stripe/webhook",
+  "/api/automations/run",
+  "/api/ical/sync",
+  "/api/ical/export/",
+  "/api/paybyrd/webhook",
+];
 
 const PATH_PERMISSIONS: Record<string, string[]> = {
   "/alojamentos": ["quartos"],
   "/equipas": ["equipas", "limpeza", "manutencao"],
-  "/regras": ["regras"],
   "/hospedes": ["hospedes"],
   "/reservas": ["reservas"],
   "/automacao": ["automacao"],
   "/relatorios": ["relatorios"],
   "/integracoes": ["integracoes"],
+  "/inventario": ["inventario"],
+  "/caixa": ["caixa"],
+  "/email-marketing": ["marketing"],
 };
 
 export async function updateSession(request: NextRequest) {

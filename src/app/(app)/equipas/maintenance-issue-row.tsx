@@ -17,6 +17,7 @@ import {
 } from "./maintenance-actions";
 import { MaintenanceIssueFormModal } from "./maintenance-issue-form-modal";
 import { MaintenanceIssueTimer } from "./maintenance-issue-timer";
+import { ModalPortal } from "@/components/modal-portal";
 
 export function MaintenanceIssueRow({
   issue,
@@ -51,7 +52,10 @@ export function MaintenanceIssueRow({
   function handleAssigneeChange(staffId: string) {
     setError(null);
     startTransition(async () => {
-      const result = await setMaintenanceIssueAssignee(issue.id, staffId || null);
+      const result = await setMaintenanceIssueAssignee(
+        issue.id,
+        staffId || null,
+      );
       if ("error" in result) setError(result.error);
     });
   }
@@ -143,14 +147,16 @@ export function MaintenanceIssueRow({
         </td>
       </tr>
 
-      {editing && (
-        <MaintenanceIssueFormModal
-          issue={issue}
-          rooms={rooms}
-          canDelete={canManage}
-          onClose={() => setEditing(false)}
-        />
-      )}
+      <ModalPortal>
+        {editing && (
+          <MaintenanceIssueFormModal
+            issue={issue}
+            rooms={rooms}
+            canDelete={canManage}
+            onClose={() => setEditing(false)}
+          />
+        )}
+      </ModalPortal>
     </>
   );
 }

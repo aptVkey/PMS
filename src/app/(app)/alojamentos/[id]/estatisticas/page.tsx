@@ -64,11 +64,14 @@ export default async function AlojamentoEstatisticasPage({
       bookings={(bookings as unknown as ReportingBooking[]) ?? []}
       rooms={rooms}
       cleaningTasks={
-        isAdmin ? ((cleaningTasks as unknown as ReportingCleaningTask[]) ?? []) : []
+        isAdmin
+          ? ((cleaningTasks as unknown as ReportingCleaningTask[]) ?? [])
+          : []
       }
       maintenanceIssues={
         isAdmin
-          ? ((maintenanceIssues as unknown as ReportingMaintenanceIssue[]) ?? [])
+          ? ((maintenanceIssues as unknown as ReportingMaintenanceIssue[]) ??
+            [])
           : []
       }
       isAdmin={isAdmin}

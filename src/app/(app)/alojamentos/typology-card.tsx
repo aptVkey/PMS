@@ -29,7 +29,10 @@ export function TypologyCard({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
-              <Building2 className="h-8 w-8 text-ink-subdued" strokeWidth={1.5} />
+              <Building2
+                className="h-8 w-8 text-ink-subdued"
+                strokeWidth={1.5}
+              />
             </div>
           )}
         </div>

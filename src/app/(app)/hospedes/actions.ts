@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/permissions";
 import { DOCUMENT_TYPES } from "@/lib/guests";
 
 const GuestSchema = z.object({
@@ -18,15 +19,15 @@ const GuestSchema = z.object({
   notes: z.string().optional(),
 });
 
-export type GuestFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+export type GuestFormState = { error: string } | { success: true } | undefined;
 
 export async function saveGuest(
   _prevState: GuestFormState,
   formData: FormData,
 ): Promise<GuestFormState> {
+  const denied = await requirePermission("hospedes");
+  if (denied) return denied;
+
   const parsed = GuestSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email") || undefined,
@@ -71,6 +72,9 @@ export async function saveGuest(
 export async function deleteGuest(
   guestId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("hospedes");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("guests").delete().eq("id", guestId);

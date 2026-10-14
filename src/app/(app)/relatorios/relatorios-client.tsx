@@ -6,6 +6,7 @@ import {
   Calendar,
   CalendarRange,
   Euro,
+  Globe2,
   LineChart,
   Moon,
   Receipt,
@@ -41,8 +42,10 @@ import {
 } from "@/lib/reporting";
 import { diffDaysISO } from "@/lib/date-utils";
 import { DateRangePicker, type DateRange } from "../reservas/date-range-picker";
-import { KpiCard } from "./kpi-card";
-import { BreakdownList } from "./breakdown-list";
+import { KpiCard } from "@/components/kpi-card";
+import { BreakdownList } from "@/components/breakdown-list";
+import { WorldMap } from "@/components/world-map";
+import { NATIONALITY_TO_MAP_NAME } from "@/lib/geo";
 
 const CHANNEL_COLORS = [
   "bg-primary",
@@ -193,6 +196,70 @@ export function RelatoriosClient({
     return { totalPeople, repeat };
   }, [activeBookings]);
 
+  const countryBreakdown = useMemo(() => {
+    const groups = new Map<
+      string,
+      { bookings: number; nights: number; revenue: number }
+    >();
+    for (const b of activeBookings) {
+      const key = b.guest?.nationality || "Desconhecida";
+      const nights = diffDaysISO(b.check_in, b.check_out);
+      const g = groups.get(key) ?? { bookings: 0, nights: 0, revenue: 0 };
+      g.bookings += 1;
+      g.nights += nights;
+      g.revenue += b.total_amount;
+      groups.set(key, g);
+    }
+    return Array.from(groups.entries())
+      .map(([label, g]) => ({
+        label,
+        bookings: g.bookings,
+        nights: g.nights,
+        revenue: g.revenue,
+        adr: g.nights > 0 ? g.revenue / g.nights : 0,
+        alos: g.bookings > 0 ? g.nights / g.bookings : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [activeBookings]);
+
+  const mapCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const row of countryBreakdown) {
+      const mapName = NATIONALITY_TO_MAP_NAME[row.label];
+      if (mapName) counts[mapName] = (counts[mapName] ?? 0) + row.bookings;
+    }
+    return counts;
+  }, [countryBreakdown]);
+
+  const propertyBreakdown = useMemo(() => {
+    const roomNameById = new Map(rooms.map((r) => [r.id, r.name]));
+    const groups = new Map<
+      string,
+      { bookings: number; nights: number; revenue: number }
+    >();
+    for (const b of activeBookings) {
+      const key = roomNameById.get(b.room_id) ?? "Desconhecido";
+      const nights = diffDaysISO(b.check_in, b.check_out);
+      const g = groups.get(key) ?? { bookings: 0, nights: 0, revenue: 0 };
+      g.bookings += 1;
+      g.nights += nights;
+      g.revenue += b.total_amount;
+      groups.set(key, g);
+    }
+    return Array.from(groups.entries())
+      .map(([label, g]) => ({
+        label,
+        bookings: g.bookings,
+        nights: g.nights,
+        revenue: g.revenue,
+        adr: g.nights > 0 ? g.revenue / g.nights : 0,
+        alos: g.bookings > 0 ? g.nights / g.bookings : 0,
+        occupancy: daysInRange > 0 ? g.nights / daysInRange : 0,
+        revPar: daysInRange > 0 ? g.revenue / daysInRange : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [activeBookings, rooms, daysInRange]);
+
   const cleaningStats = useMemo(() => {
     const completed = cleaningTasks.filter((t) => {
       if (t.status !== "concluida" || !t.completed_at) return false;
@@ -231,10 +298,14 @@ export function RelatoriosClient({
       0,
     );
     const counts = new Map<string, number>();
-    for (const i of resolved) counts.set(i.priority, (counts.get(i.priority) ?? 0) + 1);
+    for (const i of resolved)
+      counts.set(i.priority, (counts.get(i.priority) ?? 0) + 1);
     const priorityBreakdown = Array.from(counts.entries()).map(
       ([priority, value]) => ({
-        label: MAINTENANCE_PRIORITY_LABELS[priority as keyof typeof MAINTENANCE_PRIORITY_LABELS],
+        label:
+          MAINTENANCE_PRIORITY_LABELS[
+            priority as keyof typeof MAINTENANCE_PRIORITY_LABELS
+          ],
         value,
         colorClass:
           MAINTENANCE_PRIORITY_STYLES[
@@ -363,6 +434,35 @@ export function RelatoriosClient({
         <BreakdownList title="Reservas por canal" items={channelBreakdown} />
       </div>
 
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <Globe2 className="h-5 w-5 text-primary" strokeWidth={2} />
+          <div>
+            <h2 className="text-[18px] font-bold text-ink">
+              Distribuição geográfica
+            </h2>
+            <p className="text-body text-ink-muted">
+              De onde vêm os teus hóspedes, e o desempenho por país e por
+              alojamento no período selecionado.
+            </p>
+          </div>
+        </div>
+
+        <WorldMap counts={mapCounts} />
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <PerformanceTable
+            title="Desempenho por país"
+            rows={countryBreakdown}
+          />
+          <PerformanceTable
+            title="Desempenho por alojamento"
+            rows={propertyBreakdown}
+            showOccupancy
+          />
+        </div>
+      </div>
+
       {isAdmin && (
         <div className="flex flex-col gap-4">
           <div>
@@ -392,6 +492,96 @@ export function RelatoriosClient({
               items={maintenanceStats.priorityBreakdown}
             />
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type PerformanceRow = {
+  label: string;
+  bookings: number;
+  nights: number;
+  revenue: number;
+  adr: number;
+  alos: number;
+  occupancy?: number;
+  revPar?: number;
+};
+
+function PerformanceTable({
+  title,
+  rows,
+  showOccupancy = false,
+}: {
+  title: string;
+  rows: PerformanceRow[];
+  showOccupancy?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-4 shadow-card">
+      <p className="text-body font-semibold text-ink">{title}</p>
+      {rows.length === 0 ? (
+        <p className="text-body text-ink-subdued">Sem dados neste período.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[12px]">
+            <thead>
+              <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-wide text-ink-subdued">
+                <th className="py-2 pr-3">
+                  {showOccupancy ? "Alojamento" : "País"}
+                </th>
+                <th className="px-3 py-2 text-right">Reservas</th>
+                <th className="px-3 py-2 text-right">Noites</th>
+                {showOccupancy && (
+                  <th className="px-3 py-2 text-right">Ocupação</th>
+                )}
+                <th className="px-3 py-2 text-right">Receita</th>
+                <th className="px-3 py-2 text-right">ADR</th>
+                {showOccupancy && (
+                  <th className="px-3 py-2 text-right">RevPAR</th>
+                )}
+                <th className="py-2 pl-3 text-right">ALOS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.label}
+                  className="border-b border-border last:border-0"
+                >
+                  <td className="py-2 pr-3 font-semibold text-ink">
+                    {row.label}
+                  </td>
+                  <td className="px-3 py-2 text-right text-ink-muted">
+                    {row.bookings}
+                  </td>
+                  <td className="px-3 py-2 text-right text-ink-muted">
+                    {row.nights}
+                  </td>
+                  {showOccupancy && (
+                    <td className="px-3 py-2 text-right text-ink-muted">
+                      {Math.round((row.occupancy ?? 0) * 100)}%
+                    </td>
+                  )}
+                  <td className="px-3 py-2 text-right text-ink-muted">
+                    {formatCurrency(row.revenue)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-ink-muted">
+                    {formatCurrency(row.adr)}
+                  </td>
+                  {showOccupancy && (
+                    <td className="px-3 py-2 text-right text-ink-muted">
+                      {formatCurrency(row.revPar ?? 0)}
+                    </td>
+                  )}
+                  <td className="py-2 pl-3 text-right text-ink-muted">
+                    {row.alos.toFixed(1)} noites
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
-import {
-  DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  type Guest,
-} from "@/lib/guests";
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, type Guest } from "@/lib/guests";
 import type { Booking } from "@/lib/bookings";
 import { GuestRow } from "./guest-row";
 import { GuestFormModal } from "./guest-form-modal";
@@ -46,8 +42,7 @@ export function HospedesClient({
         nationalityFilter === "" || guest.nationality === nationalityFilter;
 
       const matchesDocumentType =
-        documentTypeFilter === "" ||
-        guest.document_type === documentTypeFilter;
+        documentTypeFilter === "" || guest.document_type === documentTypeFilter;
 
       return matchesQuery && matchesNationality && matchesDocumentType;
     });

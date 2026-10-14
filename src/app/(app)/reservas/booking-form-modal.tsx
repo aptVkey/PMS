@@ -92,7 +92,12 @@ export function BookingFormModal({
   const totalAmount = manualTotal ?? suggestedTotal;
 
   const applicableMinStay = room
-    ? resolveMinStay(checkIn, room.min_stay_nights, roomRatePeriods)
+    ? resolveMinStay(
+        checkIn,
+        room.min_stay_nights,
+        roomRatePeriods,
+        roomDailyPrices,
+      )
     : null;
   const belowMinStay =
     applicableMinStay != null && nights > 0 && nights < applicableMinStay;
@@ -117,257 +122,280 @@ export function BookingFormModal({
         </div>
 
         <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
-        <form
-          id="booking-form"
-          action={formAction}
-          className="flex flex-col gap-5"
-        >
-          {booking && <input type="hidden" name="id" value={booking.id} />}
+          <form
+            id="booking-form"
+            action={formAction}
+            className="flex flex-col gap-5"
+          >
+            {booking && <input type="hidden" name="id" value={booking.id} />}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="guestId" className={labelClasses}>
-                Hóspede
-              </label>
-              {guests.length === 0 ? (
-                <p className="text-body text-ink-subdued">
-                  Ainda não tens hóspedes. Adiciona um em Hóspedes / CRM
-                  primeiro.
-                </p>
-              ) : (
-                <select
-                  id="guestId"
-                  name="guestId"
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="guestId" className={labelClasses}>
+                  Hóspede
+                </label>
+                {guests.length === 0 ? (
+                  <p className="text-body text-ink-subdued">
+                    Ainda não tens hóspedes. Adiciona um em Hóspedes / CRM
+                    primeiro.
+                  </p>
+                ) : (
+                  <select
+                    id="guestId"
+                    name="guestId"
+                    required
+                    defaultValue={booking?.guest_id ?? ""}
+                    className={inputClasses}
+                  >
+                    <option value="" disabled>
+                      Selecionar...
+                    </option>
+                    {guests.map((guest) => (
+                      <option key={guest.id} value={guest.id}>
+                        {guest.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="roomId" className={labelClasses}>
+                  Quarto
+                </label>
+                {rooms.length === 0 ? (
+                  <p className="text-body text-ink-subdued">
+                    Ainda não tens quartos. Adiciona um em Alojamentos primeiro.
+                  </p>
+                ) : (
+                  <select
+                    id="roomId"
+                    name="roomId"
+                    required
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    className={inputClasses}
+                  >
+                    {rooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="checkIn" className={labelClasses}>
+                  Check-in
+                </label>
+                <input
+                  id="checkIn"
+                  name="checkIn"
+                  type="date"
                   required
-                  defaultValue={booking?.guest_id ?? ""}
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="checkOut" className={labelClasses}>
+                  Check-out
+                </label>
+                <input
+                  id="checkOut"
+                  name="checkOut"
+                  type="date"
+                  required
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  className={inputClasses}
+                />
+                {nights > 0 && (
+                  <p
+                    className={`text-[12px] ${belowMinStay ? "font-semibold text-primary" : "text-ink-subdued"}`}
+                  >
+                    {nights} {nights === 1 ? "noite" : "noites"}
+                    {belowMinStay
+                      ? ` · Estadia mínima de ${applicableMinStay} noites`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="numAdults"
+                  className="text-[12px] text-ink-subdued"
+                >
+                  Adultos
+                </label>
+                <input
+                  id="numAdults"
+                  name="numAdults"
+                  type="number"
+                  min={1}
+                  required
+                  defaultValue={booking?.num_adults ?? 1}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="numChildren"
+                  className="text-[12px] text-ink-subdued"
+                >
+                  Crianças
+                </label>
+                <input
+                  id="numChildren"
+                  name="numChildren"
+                  type="number"
+                  min={0}
+                  required
+                  defaultValue={booking?.num_children ?? 0}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="numInfants"
+                  className="text-[12px] text-ink-subdued"
+                >
+                  Bebés
+                </label>
+                <input
+                  id="numInfants"
+                  name="numInfants"
+                  type="number"
+                  min={0}
+                  required
+                  defaultValue={booking?.num_infants ?? 0}
+                  className={inputClasses}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="status" className={labelClasses}>
+                  Estado
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={booking?.status ?? "pendente"}
                   className={inputClasses}
                 >
-                  <option value="" disabled>
-                    Selecionar...
-                  </option>
-                  {guests.map((guest) => (
-                    <option key={guest.id} value={guest.id}>
-                      {guest.name}
+                  {BOOKING_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {BOOKING_STATUS_LABELS[status]}
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="roomId" className={labelClasses}>
-                Quarto
-              </label>
-              {rooms.length === 0 ? (
-                <p className="text-body text-ink-subdued">
-                  Ainda não tens quartos. Adiciona um em Alojamentos
-                  primeiro.
-                </p>
-              ) : (
-                <select
-                  id="roomId"
-                  name="roomId"
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="totalAmount" className={labelClasses}>
+                  Valor total (€)
+                </label>
+                <input
+                  id="totalAmount"
+                  name="totalAmount"
+                  type="number"
+                  min={0}
+                  step="0.01"
                   required
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  value={totalAmount}
+                  onChange={(e) => setManualTotal(Number(e.target.value))}
                   className={inputClasses}
-                >
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="checkIn" className={labelClasses}>
-                Check-in
+              <label htmlFor="channel" className={labelClasses}>
+                Canal / Origem
               </label>
               <input
-                id="checkIn"
-                name="checkIn"
-                type="date"
-                required
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
+                id="channel"
+                name="channel"
+                type="text"
+                list="channel-suggestions"
+                defaultValue={booking?.channel ?? ""}
+                placeholder="Ex: Direto, Booking.com..."
                 className={inputClasses}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="checkOut" className={labelClasses}>
-                Check-out
-              </label>
-              <input
-                id="checkOut"
-                name="checkOut"
-                type="date"
-                required
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className={inputClasses}
-              />
-              {nights > 0 && (
-                <p
-                  className={`text-[12px] ${belowMinStay ? "font-semibold text-primary" : "text-ink-subdued"}`}
-                >
-                  {nights} {nights === 1 ? "noite" : "noites"}
-                  {belowMinStay
-                    ? ` · Estadia mínima de ${applicableMinStay} noites`
-                    : ""}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="numAdults" className="text-[12px] text-ink-subdued">
-                Adultos
-              </label>
-              <input
-                id="numAdults"
-                name="numAdults"
-                type="number"
-                min={1}
-                required
-                defaultValue={booking?.num_adults ?? 1}
-                className={inputClasses}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="numChildren" className="text-[12px] text-ink-subdued">
-                Crianças
-              </label>
-              <input
-                id="numChildren"
-                name="numChildren"
-                type="number"
-                min={0}
-                required
-                defaultValue={booking?.num_children ?? 0}
-                className={inputClasses}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="numInfants" className="text-[12px] text-ink-subdued">
-                Bebés
-              </label>
-              <input
-                id="numInfants"
-                name="numInfants"
-                type="number"
-                min={0}
-                required
-                defaultValue={booking?.num_infants ?? 0}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="status" className={labelClasses}>
-                Estado
-              </label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={booking?.status ?? "pendente"}
-                className={inputClasses}
-              >
-                {BOOKING_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {BOOKING_STATUS_LABELS[status]}
-                  </option>
+              <datalist id="channel-suggestions">
+                {CHANNEL_SUGGESTIONS.map((channel) => (
+                  <option key={channel} value={channel} />
                 ))}
-              </select>
+              </datalist>
             </div>
+
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="totalAmount" className={labelClasses}>
-                Valor total (€)
+              <label htmlFor="notes" className={labelClasses}>
+                Notas
               </label>
-              <input
-                id="totalAmount"
-                name="totalAmount"
-                type="number"
-                min={0}
-                step="0.01"
-                required
-                value={totalAmount}
-                onChange={(e) => setManualTotal(Number(e.target.value))}
-                className={inputClasses}
+              <textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                defaultValue={booking?.notes ?? ""}
+                placeholder="Pedidos especiais, informações adicionais..."
+                className={`${inputClasses} min-h-0 py-2`}
               />
             </div>
+
+            {belowMinStay && (
+              <label className="flex items-start gap-2.5 rounded-md border border-border bg-surface-1 p-3">
+                <input
+                  type="checkbox"
+                  name="allowBelowMinStay"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-action)]"
+                />
+                <span className="text-[12px] text-ink-muted">
+                  Esta estadia tem {nights} {nights === 1 ? "noite" : "noites"}{" "}
+                  e o mínimo definido para estas datas é de {applicableMinStay}.
+                  Confirma para guardar mesmo assim.
+                </span>
+              </label>
+            )}
+
+            {state && "error" in state && (
+              <p aria-live="polite" className="text-body text-error">
+                {state.error}
+              </p>
+            )}
+          </form>
+
+          {booking && <PaymentsSection booking={booking} />}
+
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-11 rounded-md border border-border bg-canvas px-4 text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="booking-form"
+              disabled={pending || rooms.length === 0 || guests.length === 0}
+              className="min-h-11 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pending
+                ? "A guardar..."
+                : booking
+                  ? "Guardar alterações"
+                  : "Guardar reserva"}
+            </button>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="channel" className={labelClasses}>
-              Canal / Origem
-            </label>
-            <input
-              id="channel"
-              name="channel"
-              type="text"
-              list="channel-suggestions"
-              defaultValue={booking?.channel ?? ""}
-              placeholder="Ex: Direto, Booking.com..."
-              className={inputClasses}
-            />
-            <datalist id="channel-suggestions">
-              {CHANNEL_SUGGESTIONS.map((channel) => (
-                <option key={channel} value={channel} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="notes" className={labelClasses}>
-              Notas
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              rows={3}
-              defaultValue={booking?.notes ?? ""}
-              placeholder="Pedidos especiais, informações adicionais..."
-              className={`${inputClasses} min-h-0 py-2`}
-            />
-          </div>
-
-          {state && "error" in state && (
-            <p aria-live="polite" className="text-body text-error">
-              {state.error}
-            </p>
-          )}
-        </form>
-
-        {booking && <PaymentsSection booking={booking} />}
-
-        <div className="flex justify-end gap-3 border-t border-border pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 rounded-md border border-border bg-canvas px-4 text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            form="booking-form"
-            disabled={pending || rooms.length === 0 || guests.length === 0}
-            className="min-h-11 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {pending
-              ? "A guardar..."
-              : booking
-                ? "Guardar alterações"
-                : "Guardar reserva"}
-          </button>
-        </div>
         </div>
       </div>
     </div>

@@ -10,9 +10,13 @@ import {
   type CleaningTask,
 } from "@/lib/cleaning";
 import type { StaffMember } from "@/lib/staff";
-import { setCleaningTaskStatus, setCleaningTaskAssignee } from "./cleaning-actions";
+import {
+  setCleaningTaskStatus,
+  setCleaningTaskAssignee,
+} from "./cleaning-actions";
 import { CleaningTaskFormModal } from "./cleaning-task-form-modal";
 import { CleaningTaskTimer } from "./cleaning-task-timer";
+import { ModalPortal } from "@/components/modal-portal";
 
 export function CleaningTaskRow({
   task,
@@ -139,13 +143,15 @@ export function CleaningTaskRow({
         </td>
       </tr>
 
-      {editing && (
-        <CleaningTaskFormModal
-          task={task}
-          rooms={rooms}
-          onClose={() => setEditing(false)}
-        />
-      )}
+      <ModalPortal>
+        {editing && (
+          <CleaningTaskFormModal
+            task={task}
+            rooms={rooms}
+            onClose={() => setEditing(false)}
+          />
+        )}
+      </ModalPortal>
     </>
   );
 }

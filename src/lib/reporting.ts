@@ -1,4 +1,9 @@
-import { addDaysISO, diffDaysISO, formatDateLabel, todayISO } from "@/lib/date-utils";
+import {
+  addDaysISO,
+  diffDaysISO,
+  formatDateLabel,
+  todayISO,
+} from "@/lib/date-utils";
 import type { BookingStatus } from "@/lib/bookings";
 
 export type ReportingBooking = {
@@ -14,7 +19,11 @@ export type ReportingBooking = {
   num_children: number;
   num_infants: number;
   payments?: { amount: number }[];
-  guest?: { name: string; visit_count: number; nationality: string | null } | null;
+  guest?: {
+    name: string;
+    visit_count: number;
+    nationality: string | null;
+  } | null;
 };
 
 export type ReportingCleaningTask = {
@@ -32,7 +41,13 @@ export type ReportingMaintenanceIssue = {
   assignee?: { hourly_rate: number | null } | null;
 };
 
-export const PERIOD_PRESETS = ["hoje", "7dias", "mes", "ano", "custom"] as const;
+export const PERIOD_PRESETS = [
+  "hoje",
+  "7dias",
+  "mes",
+  "ano",
+  "custom",
+] as const;
 
 export type PeriodPreset = (typeof PERIOD_PRESETS)[number];
 
@@ -44,7 +59,10 @@ export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   custom: "Personalizado",
 };
 
-export function getPresetRange(preset: PeriodPreset): { start: string; end: string } {
+export function getPresetRange(preset: PeriodPreset): {
+  start: string;
+  end: string;
+} {
   const today = todayISO();
   switch (preset) {
     case "hoje":
@@ -86,7 +104,8 @@ export function nightsOverlap(
 ): number {
   const periodEndExclusive = addDaysISO(periodEnd, 1);
   const overlapStart = checkIn > periodStart ? checkIn : periodStart;
-  const overlapEnd = checkOut < periodEndExclusive ? checkOut : periodEndExclusive;
+  const overlapEnd =
+    checkOut < periodEndExclusive ? checkOut : periodEndExclusive;
   return Math.max(0, diffDaysISO(overlapStart, overlapEnd));
 }
 

@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/permissions";
+
+// Violação da exclusion constraint room_rate_periods_no_overlap.
+const EXCLUSION_VIOLATION = "23P01";
 import { formatISO, todayISO } from "@/lib/date-utils";
 import {
   calculateMonthOccupancy,
@@ -17,12 +21,16 @@ const BaseRateSchema = z.object({
   minStayNights: z.coerce.number().int().min(1).max(365).optional(),
 });
 
-export type PricingFormState = { error: string } | { success: true } | undefined;
+export type PricingFormState =
+  { error: string } | { success: true } | undefined;
 
 export async function saveBaseRate(
   _prevState: PricingFormState,
   formData: FormData,
 ): Promise<PricingFormState> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const parsed = BaseRateSchema.safeParse({
     roomId: formData.get("roomId"),
     basePrice: formData.get("basePrice"),
@@ -30,7 +38,10 @@ export async function saveBaseRate(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
@@ -46,7 +57,7 @@ export async function saveBaseRate(
     return { error: "Não foi possível guardar o preço base. Tenta novamente." };
   }
 
-  revalidatePath("/precos");
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/alojamentos");
   return { success: true };
 }
@@ -72,6 +83,9 @@ export async function saveRatePeriod(
   _prevState: PricingFormState,
   formData: FormData,
 ): Promise<PricingFormState> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const parsed = RatePeriodSchema.safeParse({
     id: formData.get("id") || undefined,
     roomId: formData.get("roomId"),
@@ -85,7 +99,10 @@ export async function saveRatePeriod(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
@@ -109,7 +126,8 @@ export async function saveRatePeriod(
 
   if (overlaps && overlaps.length > 0) {
     return {
-      error: "Já existe um período com tarifa definida que sobrepõe estas datas.",
+      error:
+        "Já existe um período com tarifa definida que sobrepõe estas datas.",
     };
   }
 
@@ -132,10 +150,16 @@ export async function saveRatePeriod(
     : await supabase.from("room_rate_periods").insert(payload);
 
   if (error) {
+    if (error.code === EXCLUSION_VIOLATION) {
+      return {
+        error:
+          "Já existe um período com tarifa definida que sobrepõe estas datas.",
+      };
+    }
     return { error: "Não foi possível guardar o período. Tenta novamente." };
   }
 
-  revalidatePath("/precos");
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/reservas");
   return { success: true };
 }
@@ -143,6 +167,9 @@ export async function saveRatePeriod(
 export async function deleteRatePeriod(
   periodId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("room_rate_periods")
@@ -153,68 +180,136 @@ export async function deleteRatePeriod(
     return { error: "Não foi possível remover o período. Tenta novamente." };
   }
 
-  revalidatePath("/precos");
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/reservas");
   return { success: true };
 }
 
-const DailyPriceSchema = z.object({
+// Edição em bloco das exceções de dia. `undefined` num campo significa
+// "não mexer", `null` significa "remover a exceção desse campo" — é o que
+// permite limpar só o preço e manter a estadia mínima, ou vice-versa.
+const BulkDailySchema = z.object({
   roomId: z.string().min(1),
-  date: z.string().min(1, { error: "Indica a data." }),
-  nightlyRate: z.coerce.number().min(0, { error: "Indica um valor válido." }),
+  dates: z
+    .array(z.string().min(1))
+    .min(1, { error: "Seleciona pelo menos um dia." }),
+  nightlyRate: z.union([z.coerce.number().min(0), z.null()]).optional(),
+  minStayNights: z
+    .union([z.coerce.number().int().min(1).max(365), z.null()])
+    .optional(),
 });
 
-export async function saveDailyPrice(
-  _prevState: PricingFormState,
-  formData: FormData,
-): Promise<PricingFormState> {
-  const parsed = DailyPriceSchema.safeParse({
-    roomId: formData.get("roomId"),
-    date: formData.get("date"),
-    nightlyRate: formData.get("nightlyRate"),
-  });
+export type BulkDailyInput = {
+  nightlyRate?: number | null;
+  minStayNights?: number | null;
+};
+
+export async function saveBulkDailyPrices(
+  roomId: string,
+  dates: string[],
+  values: BulkDailyInput,
+): Promise<
+  { error: string } | { success: true; updated: number; removed: number }
+> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
+  const parsed = BulkDailySchema.safeParse({ roomId, dates, ...values });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os valores indicados.",
+    };
+  }
+
+  if (values.nightlyRate === undefined && values.minStayNights === undefined) {
+    return { error: "Indica um preço ou uma estadia mínima para aplicar." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("room_daily_prices").upsert(
-    {
-      room_id: parsed.data.roomId,
-      date: parsed.data.date,
-      nightly_rate: parsed.data.nightlyRate,
-    },
-    { onConflict: "room_id,date" },
+
+  // Precisamos do que já lá está para saber o que fica quando só um dos
+  // campos é alterado.
+  const { data: existing, error: readError } = await supabase
+    .from("room_daily_prices")
+    .select("date, nightly_rate, min_stay_nights")
+    .eq("room_id", parsed.data.roomId)
+    .in("date", parsed.data.dates);
+
+  if (readError) {
+    return { error: "Não foi possível ler os preços atuais. Tenta novamente." };
+  }
+
+  const atuais = new Map(
+    (existing ?? []).map((row) => [row.date as string, row]),
   );
 
-  if (error) {
-    return { error: "Não foi possível guardar o preço do dia. Tenta novamente." };
+  const paraGravar: {
+    room_id: string;
+    date: string;
+    nightly_rate: number | null;
+    min_stay_nights: number | null;
+  }[] = [];
+  const paraApagar: string[] = [];
+
+  for (const date of parsed.data.dates) {
+    const atual = atuais.get(date);
+    const nightlyRate =
+      values.nightlyRate === undefined
+        ? (atual?.nightly_rate ?? null)
+        : values.nightlyRate;
+    const minStayNights =
+      values.minStayNights === undefined
+        ? (atual?.min_stay_nights ?? null)
+        : values.minStayNights;
+
+    // Sem preço nem estadia mínima a exceção deixa de ter conteúdo — a linha
+    // sai, e o dia volta a herdar o período sazonal ou o preço base.
+    if (nightlyRate === null && minStayNights === null) {
+      if (atual) paraApagar.push(date);
+      continue;
+    }
+
+    paraGravar.push({
+      room_id: parsed.data.roomId,
+      date,
+      nightly_rate: nightlyRate,
+      min_stay_nights: minStayNights,
+    });
   }
 
-  revalidatePath("/precos");
-  revalidatePath("/reservas");
-  return { success: true };
-}
+  if (paraGravar.length > 0) {
+    const { error } = await supabase
+      .from("room_daily_prices")
+      .upsert(paraGravar, { onConflict: "room_id,date" });
 
-export async function deleteDailyPrice(
-  roomId: string,
-  date: string,
-): Promise<{ error: string } | { success: true }> {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("room_daily_prices")
-    .delete()
-    .eq("room_id", roomId)
-    .eq("date", date);
-
-  if (error) {
-    return { error: "Não foi possível remover o preço do dia. Tenta novamente." };
+    if (error) {
+      return { error: "Não foi possível guardar os dias. Tenta novamente." };
+    }
   }
 
-  revalidatePath("/precos");
+  if (paraApagar.length > 0) {
+    const { error } = await supabase
+      .from("room_daily_prices")
+      .delete()
+      .eq("room_id", parsed.data.roomId)
+      .in("date", paraApagar);
+
+    if (error) {
+      return {
+        error: "Não foi possível remover as exceções. Tenta novamente.",
+      };
+    }
+  }
+
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/reservas");
-  return { success: true };
+  return {
+    success: true,
+    updated: paraGravar.length,
+    removed: paraApagar.length,
+  };
 }
 
 export async function applyMonthlySuggestion(
@@ -222,6 +317,9 @@ export async function applyMonthlySuggestion(
   year: number,
   month: number,
 ): Promise<{ error: string } | { success: true; updated: number }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const { data: room } = await supabase
@@ -258,7 +356,11 @@ export async function applyMonthlySuggestion(
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = todayISO();
-  const existingDates = new Set((dailyPrices ?? []).map((d) => d.date));
+  const existingDates = new Set(
+    (dailyPrices ?? [])
+      .filter((d) => d.nightly_rate !== null)
+      .map((d) => d.date),
+  );
   const rows: { room_id: string; date: string; nightly_rate: number }[] = [];
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -288,7 +390,7 @@ export async function applyMonthlySuggestion(
     return { error: "Não foi possível aplicar a sugestão. Tenta novamente." };
   }
 
-  revalidatePath("/precos");
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/reservas");
   return { success: true, updated: rows.length };
 }

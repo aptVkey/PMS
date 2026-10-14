@@ -32,14 +32,14 @@ export function ConfirmDeleteTypologyModal({
       <div className="w-full max-w-sm rounded-lg bg-canvas p-6 shadow-popover">
         <h2 className="text-[18px] font-bold text-ink">Eliminar tipologia</h2>
         <p className="mt-2 text-body text-ink-muted">
-          Tens a certeza que queres eliminar &ldquo;{typology.name}&rdquo;?
-          Esta ação não pode ser desfeita.
+          Tens a certeza que queres eliminar &ldquo;{typology.name}&rdquo;? Esta
+          ação não pode ser desfeita.
         </p>
         {roomCount > 0 && (
           <p className="mt-2 text-body text-ink-muted">
-            {roomCount} {roomCount === 1 ? "quarto" : "quartos"} desta
-            tipologia {roomCount === 1 ? "fica" : "ficam"} sem tipologia
-            atribuída, mas não {roomCount === 1 ? "é eliminado" : "são eliminados"}.
+            {roomCount} {roomCount === 1 ? "quarto" : "quartos"} desta tipologia{" "}
+            {roomCount === 1 ? "fica" : "ficam"} sem tipologia atribuída, mas
+            não {roomCount === 1 ? "é eliminado" : "são eliminados"}.
           </p>
         )}
 

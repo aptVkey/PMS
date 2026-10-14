@@ -49,7 +49,9 @@ export default async function EquipasPage() {
         ...task,
         started_at: null,
         completed_at: null,
-        assignee: task.assignee ? { ...task.assignee, hourly_rate: null } : null,
+        assignee: task.assignee
+          ? { ...task.assignee, hourly_rate: null }
+          : null,
       }));
 
   const maintenanceIssuesRaw =

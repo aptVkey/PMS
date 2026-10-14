@@ -57,6 +57,25 @@ export const BED_TYPE_LABELS: Record<BedType, string> = {
   berco: "Berço",
 };
 
+// O plural não se resolve acrescentando "s": "sofá-cama" faz "sofás-cama" e
+// "beliche" faz "beliches". Daí um mapa próprio em vez de uma regra.
+const BED_TYPE_LABELS_PLURAL: Record<BedType, string> = {
+  casal: "camas de casal",
+  casal_king: "camas de casal King",
+  solteiro: "camas de solteiro",
+  beliche: "beliches",
+  sofa_cama: "sofás-cama",
+  berco: "berços",
+};
+
+export function formatBedCount(count: number, type: BedType): string {
+  const label =
+    count === 1
+      ? BED_TYPE_LABELS[type].toLowerCase()
+      : BED_TYPE_LABELS_PLURAL[type];
+  return `${count} ${label}`;
+}
+
 export type BedRow = {
   type: BedType;
   count: number;
@@ -89,6 +108,7 @@ export type Room = {
   amenities: string[];
   photos: string[];
   is_published: boolean;
+  access_code: string | null;
   created_at: string;
   updated_at: string;
 };

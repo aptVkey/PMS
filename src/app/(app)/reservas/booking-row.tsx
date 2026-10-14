@@ -13,6 +13,7 @@ import type { Guest } from "@/lib/guests";
 import type { RoomDailyPrice, RoomRatePeriod } from "@/lib/pricing";
 import { BookingFormModal } from "./booking-form-modal";
 import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { ModalPortal } from "@/components/modal-portal";
 
 export function BookingRow({
   booking,
@@ -109,22 +110,24 @@ export function BookingRow({
         </td>
       </tr>
 
-      {editing && (
-        <BookingFormModal
-          booking={booking}
-          rooms={rooms}
-          guests={guests}
-          ratePeriods={ratePeriods}
-          dailyPrices={dailyPrices}
-          onClose={() => setEditing(false)}
-        />
-      )}
-      {deleting && (
-        <ConfirmDeleteModal
-          booking={booking}
-          onClose={() => setDeleting(false)}
-        />
-      )}
+      <ModalPortal>
+        {editing && (
+          <BookingFormModal
+            booking={booking}
+            rooms={rooms}
+            guests={guests}
+            ratePeriods={ratePeriods}
+            dailyPrices={dailyPrices}
+            onClose={() => setEditing(false)}
+          />
+        )}
+        {deleting && (
+          <ConfirmDeleteModal
+            booking={booking}
+            onClose={() => setDeleting(false)}
+          />
+        )}
+      </ModalPortal>
     </>
   );
 }

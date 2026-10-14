@@ -22,7 +22,9 @@ export function diffDaysISO(a: string, b: string): number {
   const [by, bm, bd] = b.split("-").map(Number);
   const dateA = new Date(ay, am - 1, ad);
   const dateB = new Date(by, bm - 1, bd);
-  return Math.round((dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.round(
+    (dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24),
+  );
 }
 
 export const MONTH_ABBREV = [
@@ -47,7 +49,7 @@ export function formatDateLabel(iso: string): string {
 
 export const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
-export const WEEKDAY_NAMES_FULL = [
+const WEEKDAY_NAMES_FULL = [
   "Domingo",
   "Segunda-feira",
   "Terça-feira",

@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { DOCUMENT_TYPE_LABELS, type DocumentType, type Guest } from "@/lib/guests";
+import {
+  DOCUMENT_TYPE_LABELS,
+  type DocumentType,
+  type Guest,
+} from "@/lib/guests";
 import type { Booking } from "@/lib/bookings";
 import { GuestFormModal } from "./guest-form-modal";
 import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { ModalPortal } from "@/components/modal-portal";
 
 export function GuestRow({
   guest,
@@ -23,9 +28,7 @@ export function GuestRow({
         <td className="whitespace-nowrap px-4 py-3">
           <p className="text-body font-semibold text-ink">{guest.name}</p>
           {guest.nationality && (
-            <p className="text-[12px] text-ink-subdued">
-              {guest.nationality}
-            </p>
+            <p className="text-[12px] text-ink-subdued">{guest.nationality}</p>
           )}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
@@ -74,16 +77,21 @@ export function GuestRow({
         </td>
       </tr>
 
-      {editing && (
-        <GuestFormModal
-          guest={guest}
-          bookings={bookings}
-          onClose={() => setEditing(false)}
-        />
-      )}
-      {deleting && (
-        <ConfirmDeleteModal guest={guest} onClose={() => setDeleting(false)} />
-      )}
+      <ModalPortal>
+        {editing && (
+          <GuestFormModal
+            guest={guest}
+            bookings={bookings}
+            onClose={() => setEditing(false)}
+          />
+        )}
+        {deleting && (
+          <ConfirmDeleteModal
+            guest={guest}
+            onClose={() => setDeleting(false)}
+          />
+        )}
+      </ModalPortal>
     </>
   );
 }

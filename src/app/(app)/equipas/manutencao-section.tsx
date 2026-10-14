@@ -44,7 +44,8 @@ export function ManutencaoSection({
     return [...filtered].sort((a, b) => {
       const statusDiff = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (statusDiff !== 0) return statusDiff;
-      const priorityDiff = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      const priorityDiff =
+        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       if (priorityDiff !== 0) return priorityDiff;
       return a.created_at.localeCompare(b.created_at);
     });

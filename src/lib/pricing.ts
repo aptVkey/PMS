@@ -28,11 +28,14 @@ export function periodRateForDate(
   return period.weekday_rate;
 }
 
+// Uma exceção para um dia concreto. Pode alterar só o preço, só a estadia
+// mínima, ou os dois — daí ambos serem opcionais.
 export type RoomDailyPrice = {
   id: string;
   room_id: string;
   date: string;
-  nightly_rate: number;
+  nightly_rate: number | null;
+  min_stay_nights: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -46,7 +49,7 @@ export function resolveNightlyRate(
   dailyPrices: RoomDailyPrice[] = [],
 ): number {
   const daily = dailyPrices.find((d) => d.date === date);
-  if (daily) return daily.nightly_rate;
+  if (daily?.nightly_rate != null) return daily.nightly_rate;
   const match = periods.find((p) => date >= p.start_date && date <= p.end_date);
   return match ? periodRateForDate(match, date) : basePrice;
 }
@@ -71,25 +74,21 @@ export function calculateStayTotal(
   return Number(total.toFixed(2));
 }
 
+// Mesma ordem de especificidade do preço: exceção do dia > período sazonal >
+// valor base do quarto.
 export function resolveMinStay(
   checkIn: string,
   baseMinStay: number | null,
   periods: RoomRatePeriod[],
+  dailyPrices: RoomDailyPrice[] = [],
 ): number | null {
+  const daily = dailyPrices.find((d) => d.date === checkIn);
+  if (daily?.min_stay_nights != null) return daily.min_stay_nights;
   const match = periods.find(
     (p) => checkIn >= p.start_date && checkIn <= p.end_date,
   );
   if (match && match.min_stay_nights != null) return match.min_stay_nights;
   return baseMinStay;
-}
-
-export function periodsOverlap(
-  aStart: string,
-  aEnd: string,
-  bStart: string,
-  bEnd: string,
-): boolean {
-  return aStart <= bEnd && aEnd >= bStart;
 }
 
 const ACTIVE_BOOKING_STATUSES = new Set([

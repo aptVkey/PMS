@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { PERMISSION_KEYS, PERMISSION_LABELS, type StaffMember } from "@/lib/staff";
+import {
+  PERMISSION_KEYS,
+  PERMISSION_LABELS,
+  type StaffMember,
+} from "@/lib/staff";
 import { StaffFormModal } from "./staff-form-modal";
 import { ConfirmRemoveModal } from "./confirm-remove-modal";
+import { ModalPortal } from "@/components/modal-portal";
 
 export function StaffRow({
   member,
@@ -16,7 +21,8 @@ export function StaffRow({
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  const hasAllPermissions = member.permissions.length === PERMISSION_KEYS.length;
+  const hasAllPermissions =
+    member.permissions.length === PERMISSION_KEYS.length;
 
   return (
     <>
@@ -88,15 +94,17 @@ export function StaffRow({
         </td>
       </tr>
 
-      {editing && (
-        <StaffFormModal member={member} onClose={() => setEditing(false)} />
-      )}
-      {removing && (
-        <ConfirmRemoveModal
-          member={member}
-          onClose={() => setRemoving(false)}
-        />
-      )}
+      <ModalPortal>
+        {editing && (
+          <StaffFormModal member={member} onClose={() => setEditing(false)} />
+        )}
+        {removing && (
+          <ConfirmRemoveModal
+            member={member}
+            onClose={() => setRemoving(false)}
+          />
+        )}
+      </ModalPortal>
     </>
   );
 }

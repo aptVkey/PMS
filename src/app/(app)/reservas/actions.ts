@@ -3,7 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/permissions";
 import { BOOKING_STATUSES, PAYMENT_METHODS } from "@/lib/bookings";
+import {
+  resolveMinStay,
+  type RoomDailyPrice,
+  type RoomRatePeriod,
+} from "@/lib/pricing";
+import { diffDaysISO } from "@/lib/date-utils";
+
+// Violação da exclusion constraint bookings_no_overlap / room_rate_periods_no_overlap.
+const EXCLUSION_VIOLATION = "23P01";
 
 const BookingSchema = z
   .object({
@@ -18,6 +28,10 @@ const BookingSchema = z
     totalAmount: z.coerce.number().min(0),
     channel: z.string().optional(),
     notes: z.string().optional(),
+    // A estadia mínima é uma regra de negócio, não uma barreira: quem tem
+    // acesso a reservas pode fechar uma estadia mais curta, mas tem de o
+    // confirmar explicitamente no formulário.
+    allowBelowMinStay: z.boolean(),
   })
   .refine((data) => data.checkOut > data.checkIn, {
     error: "A data de check-out deve ser depois do check-in.",
@@ -25,14 +39,15 @@ const BookingSchema = z
   });
 
 export type BookingFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+  { error: string } | { success: true } | undefined;
 
 export async function saveBooking(
   _prevState: BookingFormState,
   formData: FormData,
 ): Promise<BookingFormState> {
+  const denied = await requirePermission("reservas");
+  if (denied) return denied;
+
   const parsed = BookingSchema.safeParse({
     roomId: formData.get("roomId"),
     guestId: formData.get("guestId"),
@@ -45,14 +60,52 @@ export async function saveBooking(
     totalAmount: formData.get("totalAmount"),
     channel: formData.get("channel") || undefined,
     notes: formData.get("notes") || undefined,
+    allowBelowMinStay: formData.get("allowBelowMinStay") === "on",
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
   const id = formData.get("id");
+
+  if (!parsed.data.allowBelowMinStay) {
+    const [{ data: room }, { data: periods }, { data: dailyPrices }] =
+      await Promise.all([
+        supabase
+          .from("rooms")
+          .select("min_stay_nights")
+          .eq("id", parsed.data.roomId)
+          .maybeSingle(),
+        supabase
+          .from("room_rate_periods")
+          .select("*")
+          .eq("room_id", parsed.data.roomId),
+        supabase
+          .from("room_daily_prices")
+          .select("*")
+          .eq("room_id", parsed.data.roomId)
+          .eq("date", parsed.data.checkIn),
+      ]);
+
+    const minStay = resolveMinStay(
+      parsed.data.checkIn,
+      room?.min_stay_nights ?? null,
+      (periods as RoomRatePeriod[]) ?? [],
+      (dailyPrices as RoomDailyPrice[]) ?? [],
+    );
+    const nights = diffDaysISO(parsed.data.checkIn, parsed.data.checkOut);
+
+    if (minStay != null && nights < minStay) {
+      return {
+        error: `Este quarto tem uma estadia mínima de ${minStay} ${minStay === 1 ? "noite" : "noites"} nestas datas. Confirma a estadia mais curta para continuar.`,
+      };
+    }
+  }
 
   let conflictQuery = supabase
     .from("bookings")
@@ -69,7 +122,9 @@ export async function saveBooking(
   const { data: conflicts, error: conflictError } = await conflictQuery;
 
   if (conflictError) {
-    return { error: "Não foi possível validar a disponibilidade. Tenta novamente." };
+    return {
+      error: "Não foi possível validar a disponibilidade. Tenta novamente.",
+    };
   }
 
   if (conflicts && conflicts.length > 0) {
@@ -97,17 +152,26 @@ export async function saveBooking(
     : await supabase.from("bookings").insert(payload);
 
   if (error) {
+    // A pré-verificação acima é informativa; esta é a garantia real. Duas
+    // gravações simultâneas passam ambas pelo SELECT, mas só uma passa aqui.
+    if (error.code === EXCLUSION_VIOLATION) {
+      return { error: "Já existe uma reserva para este quarto nessas datas." };
+    }
     return { error: "Não foi possível guardar a reserva. Tenta novamente." };
   }
 
   revalidatePath("/reservas");
   revalidatePath("/hospedes");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
 export async function deleteBooking(
   bookingId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("reservas");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -121,6 +185,7 @@ export async function deleteBooking(
 
   revalidatePath("/reservas");
   revalidatePath("/hospedes");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
@@ -133,14 +198,15 @@ const PaymentSchema = z.object({
 });
 
 export type PaymentFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+  { error: string } | { success: true } | undefined;
 
 export async function addPayment(
   _prevState: PaymentFormState,
   formData: FormData,
 ): Promise<PaymentFormState> {
+  const denied = await requirePermission("reservas");
+  if (denied) return denied;
+
   const parsed = PaymentSchema.safeParse({
     bookingId: formData.get("bookingId"),
     amount: formData.get("amount"),
@@ -169,12 +235,16 @@ export async function addPayment(
 
   revalidatePath("/reservas");
   revalidatePath("/hospedes");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
 export async function deletePayment(
   paymentId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("reservas");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -188,5 +258,6 @@ export async function deletePayment(
 
   revalidatePath("/reservas");
   revalidatePath("/hospedes");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/permissions";
 import { PERMISSION_KEYS } from "@/lib/staff";
 
 const StaffSchema = z.object({
@@ -17,10 +18,7 @@ const StaffSchema = z.object({
   permissions: z.array(z.enum(PERMISSION_KEYS)),
 });
 
-export type StaffFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+export type StaffFormState = { error: string } | { success: true } | undefined;
 
 function readPermissions(formData: FormData) {
   return formData
@@ -35,6 +33,9 @@ export async function createStaffMember(
   _prevState: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const parsed = StaffSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -45,7 +46,10 @@ export async function createStaffMember(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const admin = createAdminClient();
@@ -83,7 +87,9 @@ export async function createStaffMember(
 
   if (staffError) {
     await admin.auth.admin.deleteUser(data.user.id);
-    return { error: "Não foi possível guardar os dados da equipa. Tenta novamente." };
+    return {
+      error: "Não foi possível guardar os dados da equipa. Tenta novamente.",
+    };
   }
 
   revalidatePath("/equipas");
@@ -103,6 +109,9 @@ export async function updateStaffMember(
   _prevState: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const parsed = UpdateStaffSchema.safeParse({
     id: formData.get("id"),
     name: formData.get("name"),
@@ -113,7 +122,10 @@ export async function updateStaffMember(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
@@ -125,8 +137,13 @@ export async function updateStaffMember(
     return { error: "Não podes desativar a tua própria conta." };
   }
 
-  if (user?.id === parsed.data.id && !parsed.data.permissions.includes("equipas")) {
-    return { error: "Não podes retirar a ti próprio o acesso a Equipas e tarefas." };
+  if (
+    user?.id === parsed.data.id &&
+    !parsed.data.permissions.includes("equipas")
+  ) {
+    return {
+      error: "Não podes retirar a ti próprio o acesso a Equipas e tarefas.",
+    };
   }
 
   const { error } = await supabase
@@ -141,7 +158,9 @@ export async function updateStaffMember(
     .eq("id", parsed.data.id);
 
   if (error) {
-    return { error: "Não foi possível guardar as alterações. Tenta novamente." };
+    return {
+      error: "Não foi possível guardar as alterações. Tenta novamente.",
+    };
   }
 
   revalidatePath("/equipas");
@@ -151,6 +170,9 @@ export async function updateStaffMember(
 export async function deleteStaffMember(
   staffId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
   const {
     data: { user },

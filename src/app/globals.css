@@ -29,7 +29,8 @@
   --color-error: #cc0000;
 
   /* Typography */
-  --font-sans: BlinkMacSystemFont, -apple-system, Roboto, "Helvetica Neue", Arial,
+  --font-sans:
+    BlinkMacSystemFont, -apple-system, Roboto, "Helvetica Neue", Arial,
     sans-serif;
 
   --text-display: 36px;

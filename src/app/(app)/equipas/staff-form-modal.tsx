@@ -3,8 +3,16 @@
 import { useActionState, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, X } from "lucide-react";
-import { createStaffMember, updateStaffMember, type StaffFormState } from "./actions";
-import { PERMISSION_KEYS, PERMISSION_LABELS, type StaffMember } from "@/lib/staff";
+import {
+  createStaffMember,
+  updateStaffMember,
+  type StaffFormState,
+} from "./actions";
+import {
+  PERMISSION_KEYS,
+  PERMISSION_LABELS,
+  type StaffMember,
+} from "@/lib/staff";
 
 const initialState: StaffFormState = undefined;
 
@@ -123,7 +131,9 @@ export function StaffFormModal({
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+                  aria-label={
+                    showPassword ? "Ocultar password" : "Mostrar password"
+                  }
                   className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-ink-subdued hover:bg-surface-1"
                 >
                   {showPassword ? (
@@ -170,8 +180,8 @@ export function StaffFormModal({
                 className={inputClasses}
               />
               <p className="text-[12px] text-ink-subdued">
-                Usado para calcular o custo do tempo de limpeza. Só visível
-                pelo Administrador.
+                Usado para calcular o custo do tempo de limpeza. Só visível pelo
+                Administrador.
               </p>
             </div>
           </div>

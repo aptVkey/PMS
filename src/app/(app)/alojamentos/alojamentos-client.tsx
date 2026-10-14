@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronRight, LayoutGrid, List, Plus } from "lucide-react";
+import Image from "next/image";
+import {
+  Building2,
+  ChevronRight,
+  ExternalLink,
+  LayoutGrid,
+  List,
+  Plus,
+} from "lucide-react";
 import { PROPERTY_TYPE_LABELS, type Property } from "@/lib/property";
 import type { Room } from "@/lib/rooms";
-import type { RoomTypology } from "@/lib/room-typologies";
 import { PropertyWizardStep1Modal } from "./property-wizard-step1-modal";
 import { PropertyWizardStep2Modal } from "./property-wizard-step2-modal";
 import { PropertyCard } from "./property-card";
@@ -18,7 +25,6 @@ export function AlojamentosClient({
   rooms,
 }: {
   properties: Property[];
-  typologies: RoomTypology[];
   rooms: Room[];
 }) {
   const router = useRouter();
@@ -59,6 +65,13 @@ export function AlojamentosClient({
     return rooms.filter((r) => r.property_id === propertyId).length;
   }
 
+  // Só serve para se distinguirem os cartões de relance — usa a foto de
+  // capa do primeiro quarto do alojamento (é o único, na maioria dos casos,
+  // já que quase todos os alojamentos são de unidade singular).
+  function coverPhotoFor(propertyId: string): string | null {
+    return rooms.find((r) => r.property_id === propertyId)?.photos[0] ?? null;
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -93,6 +106,16 @@ export function AlojamentosClient({
             </div>
           )}
 
+          <a
+            href="/site"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-canvas px-4 text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
+          >
+            <ExternalLink className="h-4 w-4" strokeWidth={2} />
+            Ver website
+          </a>
+
           {properties.length > 0 && (
             <button
               type="button"
@@ -124,6 +147,7 @@ export function AlojamentosClient({
               key={property.id}
               property={property}
               unitCount={unitCountFor(property.id)}
+              coverPhotoUrl={coverPhotoFor(property.id)}
               onOpen={() => openProperty(property.id)}
             />
           ))}
@@ -132,6 +156,7 @@ export function AlojamentosClient({
         <div className="overflow-hidden rounded-lg border border-border bg-canvas shadow-card">
           {properties.map((property, index) => {
             const count = unitCountFor(property.id);
+            const coverPhotoUrl = coverPhotoFor(property.id);
             return (
               <button
                 key={property.id}
@@ -141,8 +166,20 @@ export function AlojamentosClient({
                   index > 0 ? "border-t border-border" : ""
                 }`}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-2 text-primary">
-                  <Building2 className="h-5 w-5" strokeWidth={2} />
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface-2 text-primary">
+                  {coverPhotoUrl ? (
+                    <Image
+                      src={coverPhotoUrl}
+                      alt=""
+                      fill
+                      sizes="40px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Building2 className="h-5 w-5" strokeWidth={2} />
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body font-bold text-ink">

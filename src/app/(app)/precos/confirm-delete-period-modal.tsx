@@ -30,8 +30,8 @@ export function ConfirmDeletePeriodModal({
       <div className="w-full max-w-sm rounded-lg bg-canvas p-6 shadow-popover">
         <h2 className="text-[18px] font-bold text-ink">Eliminar período</h2>
         <p className="mt-2 text-body text-ink-muted">
-          Tens a certeza que queres eliminar &ldquo;{period.label}&rdquo;?
-          Esta ação não pode ser desfeita.
+          Tens a certeza que queres eliminar &ldquo;{period.label}&rdquo;? Esta
+          ação não pode ser desfeita.
         </p>
 
         {error && (

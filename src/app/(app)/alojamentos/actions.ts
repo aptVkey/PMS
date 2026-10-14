@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/permissions";
 import { BED_TYPES, ROOM_TYPES } from "@/lib/rooms";
 import { PROPERTY_TYPES, type PropertyType } from "@/lib/property";
 
@@ -28,6 +29,7 @@ const RoomSchema = z.object({
   capacityChildren: z.coerce.number().int().min(0),
   capacityInfants: z.coerce.number().int().min(0),
   sizeM2: z.coerce.number().int().min(0).optional(),
+  accessCode: z.string().optional(),
   amenities: z.array(z.string()).optional(),
   isPublished: z.boolean().optional(),
   bedrooms: z.array(BedroomSchema).min(1),
@@ -48,6 +50,9 @@ export async function saveRoom(
   _prevState: RoomFormState,
   formData: FormData,
 ): Promise<RoomFormState> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const sizeM2Raw = formData.get("sizeM2");
 
   let bedroomsRaw: unknown;
@@ -68,6 +73,7 @@ export async function saveRoom(
     capacityChildren: formData.get("capacityChildren"),
     capacityInfants: formData.get("capacityInfants"),
     sizeM2: sizeM2Raw ? sizeM2Raw : undefined,
+    accessCode: formData.get("accessCode") || undefined,
     amenities: formData.getAll("amenities"),
     isPublished: formData.get("isPublished") === "on",
     bedrooms: bedroomsRaw,
@@ -81,29 +87,11 @@ export async function saveRoom(
 
   const supabase = await createClient();
 
-  const photoFiles = formData
-    .getAll("photos")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
-
-  const newPhotoUrls: string[] = [];
-  for (const file of photoFiles) {
-    const path = `${crypto.randomUUID()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("room-photos")
-      .upload(path, file);
-
-    if (uploadError) {
-      return { error: "Não foi possível enviar as fotos. Tenta novamente." };
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("room-photos").getPublicUrl(path);
-    newPhotoUrls.push(publicUrl);
-  }
-
-  const existingPhotoUrls = formData.getAll("existingPhotoUrls").map(String);
-  const photos = [...existingPhotoUrls, ...newPhotoUrls];
+  // As fotos já foram enviadas para o Storage a partir do browser antes desta
+  // submissão (ver upload-photos.ts) — chegam aqui só como URLs, nunca como
+  // binário. É o que mantém o corpo deste pedido pequeno, independentemente
+  // de quantas fotos ou de que tamanho.
+  const photos = formData.getAll("existingPhotoUrls").map(String);
 
   const payload = {
     property_id: parsed.data.propertyId,
@@ -116,6 +104,7 @@ export async function saveRoom(
     bedrooms: parsed.data.bedrooms,
     bathrooms: parsed.data.bathrooms,
     size_m2: parsed.data.sizeM2 ?? null,
+    access_code: parsed.data.accessCode ?? null,
     amenities: parsed.data.amenities ?? [],
     photos,
     is_published: parsed.data.isPublished ?? false,
@@ -132,6 +121,7 @@ export async function saveRoom(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
@@ -140,6 +130,9 @@ export async function deleteRoom(
   photos: string[],
   entityLabel: "quarto" | "alojamento" = "quarto",
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("rooms").delete().eq("id", roomId);
@@ -172,6 +165,7 @@ export async function deleteRoom(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
@@ -183,14 +177,15 @@ const TypologySchema = z.object({
 });
 
 export type TypologyFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+  { error: string } | { success: true } | undefined;
 
 export async function saveTypology(
   _prevState: TypologyFormState,
   formData: FormData,
 ): Promise<TypologyFormState> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const parsed = TypologySchema.safeParse({
     id: formData.get("id") || undefined,
     propertyId: formData.get("propertyId"),
@@ -199,34 +194,17 @@ export async function saveTypology(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
 
-  const photoFiles = formData
-    .getAll("photos")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
-
-  const newPhotoUrls: string[] = [];
-  for (const file of photoFiles) {
-    const path = `${crypto.randomUUID()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("room-photos")
-      .upload(path, file);
-
-    if (uploadError) {
-      return { error: "Não foi possível enviar as fotos. Tenta novamente." };
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("room-photos").getPublicUrl(path);
-    newPhotoUrls.push(publicUrl);
-  }
-
-  const existingPhotoUrls = formData.getAll("existingPhotoUrls").map(String);
-  const photos = [...existingPhotoUrls, ...newPhotoUrls];
+  // Mesma lógica de saveRoom: as fotos já estão no Storage antes de chegar
+  // aqui, só o URL viaja no pedido.
+  const photos = formData.getAll("existingPhotoUrls").map(String);
 
   const payload = {
     property_id: parsed.data.propertyId,
@@ -237,7 +215,10 @@ export async function saveTypology(
 
   const id = formData.get("id");
   const { error } = id
-    ? await supabase.from("room_typologies").update(payload).eq("id", String(id))
+    ? await supabase
+        .from("room_typologies")
+        .update(payload)
+        .eq("id", String(id))
     : await supabase.from("room_typologies").insert(payload);
 
   if (error) {
@@ -245,6 +226,7 @@ export async function saveTypology(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
@@ -252,6 +234,9 @@ export async function deleteTypology(
   typologyId: string,
   photos: string[],
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const paths = photos
@@ -280,20 +265,87 @@ export async function deleteTypology(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
+}
+
+// Um alojamento de unidade singular tem os quartos soltos, sem tipologia.
+// Ao ganhar uma segunda tipologia deixa de ser singular — e o quarto que já
+// existia não pode ficar órfão, por isso passa a ter tipologia própria com o
+// seu nome. Sem isto, a vista multi-unidade mostrá-lo-ia em "sem tipologia".
+export async function convertPropertyToMultiUnit(
+  propertyId: string,
+): Promise<{ error: string } | { success: true; wrapped: number }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+
+  const { data: orphanRooms, error: readError } = await supabase
+    .from("rooms")
+    .select("id, name")
+    .eq("property_id", propertyId)
+    .is("typology_id", null);
+
+  if (readError) {
+    return { error: "Não foi possível ler os quartos. Tenta novamente." };
+  }
+
+  for (const room of orphanRooms ?? []) {
+    const { data: typology, error: typologyError } = await supabase
+      .from("room_typologies")
+      .insert({ property_id: propertyId, name: room.name })
+      .select("id")
+      .single();
+
+    if (typologyError || !typology) {
+      return { error: "Não foi possível organizar os quartos por tipologia." };
+    }
+
+    const { error: assignError } = await supabase
+      .from("rooms")
+      .update({ typology_id: typology.id })
+      .eq("id", room.id);
+
+    if (assignError) {
+      return { error: "Não foi possível organizar os quartos por tipologia." };
+    }
+  }
+
+  const { error } = await supabase
+    .from("properties")
+    .update({ property_type: "multi_unidade" })
+    .eq("id", propertyId);
+
+  if (error) {
+    return {
+      error: "Não foi possível converter o alojamento. Tenta novamente.",
+    };
+  }
+
+  revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
+  return { success: true, wrapped: (orphanRooms ?? []).length };
 }
 
 const PropertyCreateSchema = z.object({
   name: z.string().min(1, { error: "O nome é obrigatório." }),
+  description: z.string().optional(),
 });
 
 export async function createProperty(
   name: string,
   isMultiUnidade: boolean,
+  description?: string,
 ): Promise<{ propertyId: string } | { error: string }> {
-  const parsed = PropertyCreateSchema.safeParse({ name });
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
+  const parsed = PropertyCreateSchema.safeParse({ name, description });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Indica um nome válido." };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Indica um nome válido.",
+    };
   }
 
   const supabase = await createClient();
@@ -302,6 +354,7 @@ export async function createProperty(
     .insert({
       name: parsed.data.name,
       property_type: isMultiUnidade ? "multi_unidade" : "unidade_singular",
+      description: parsed.data.description?.trim() || null,
     })
     .select("id")
     .single();
@@ -311,14 +364,24 @@ export async function createProperty(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { propertyId: data.id };
 }
 
 export async function updateProperty(
   propertyId: string,
-  updates: { name?: string; propertyType?: PropertyType },
+  updates: {
+    name?: string;
+    propertyType?: PropertyType;
+    description?: string;
+    checkInTime?: string;
+    checkOutTime?: string;
+  },
 ): Promise<{ error: string } | { success: true }> {
-  const payload: Record<string, string> = {};
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
+  const payload: Record<string, string | null> = {};
 
   if (updates.name !== undefined) {
     if (!updates.name.trim()) {
@@ -332,6 +395,26 @@ export async function updateProperty(
       return { error: "Tipo de propriedade inválido." };
     }
     payload.property_type = updates.propertyType;
+  }
+
+  if (updates.description !== undefined) {
+    payload.description = updates.description.trim() || null;
+  }
+
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  if (updates.checkInTime !== undefined) {
+    if (!timePattern.test(updates.checkInTime)) {
+      return { error: "Hora de check-in inválida." };
+    }
+    payload.check_in_time = updates.checkInTime;
+  }
+
+  if (updates.checkOutTime !== undefined) {
+    if (!timePattern.test(updates.checkOutTime)) {
+      return { error: "Hora de check-out inválida." };
+    }
+    payload.check_out_time = updates.checkOutTime;
   }
 
   if (Object.keys(payload).length === 0) {
@@ -349,6 +432,7 @@ export async function updateProperty(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   revalidatePath("/");
   return { success: true };
 }
@@ -356,6 +440,9 @@ export async function updateProperty(
 export async function deleteProperty(
   propertyId: string,
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   const [{ data: rooms }, { data: typologies }] = await Promise.all([
@@ -386,7 +473,9 @@ export async function deleteProperty(
           "Não é possível eliminar este alojamento porque tem reservas associadas a algum dos seus quartos. Elimina primeiro essas reservas em Reservas e pagamentos.",
       };
     }
-    return { error: "Não foi possível eliminar o alojamento. Tenta novamente." };
+    return {
+      error: "Não foi possível eliminar o alojamento. Tenta novamente.",
+    };
   }
 
   if (paths.length > 0) {
@@ -402,6 +491,7 @@ export async function deleteProperty(
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }
 
@@ -414,6 +504,9 @@ export async function createTypologiesWithUnits(
   propertyId: string,
   entries: TypologyUnitsInput[],
 ): Promise<{ error: string } | { success: true }> {
+  const denied = await requirePermission("quartos");
+  if (denied) return denied;
+
   const cleanEntries = entries
     .map((entry) => ({
       name: entry.name.trim(),
@@ -423,7 +516,8 @@ export async function createTypologiesWithUnits(
 
   if (cleanEntries.length === 0) {
     return {
-      error: "Adiciona pelo menos uma tipologia com o nome e as unidades preenchidos.",
+      error:
+        "Adiciona pelo menos uma tipologia com o nome e as unidades preenchidos.",
     };
   }
 
@@ -437,7 +531,9 @@ export async function createTypologiesWithUnits(
       .single();
 
     if (typologyError || !typology) {
-      return { error: "Não foi possível criar as tipologias. Tenta novamente." };
+      return {
+        error: "Não foi possível criar as tipologias. Tenta novamente.",
+      };
     }
 
     const roomRows = entry.unitNumbers.map((number) => ({
@@ -455,17 +551,17 @@ export async function createTypologiesWithUnits(
       is_published: false,
     }));
 
-    const { error: roomsError } = await supabase
-      .from("rooms")
-      .insert(roomRows);
+    const { error: roomsError } = await supabase.from("rooms").insert(roomRows);
 
     if (roomsError) {
       return {
-        error: "Não foi possível criar os quartos/apartamentos. Tenta novamente.",
+        error:
+          "Não foi possível criar os quartos/apartamentos. Tenta novamente.",
       };
     }
   }
 
   revalidatePath("/alojamentos");
+  revalidatePath("/alojamentos/[id]", "layout");
   return { success: true };
 }

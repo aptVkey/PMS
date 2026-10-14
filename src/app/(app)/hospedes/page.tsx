@@ -7,7 +7,10 @@ export default async function HospedesPage() {
   const supabase = await createClient();
 
   const [{ data: guests }, { data: bookings }] = await Promise.all([
-    supabase.from("guests").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("guests")
+      .select("*")
+      .order("created_at", { ascending: false }),
     supabase
       .from("bookings")
       .select("*, room:rooms(name)")

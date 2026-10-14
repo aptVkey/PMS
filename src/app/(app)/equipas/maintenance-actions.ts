@@ -3,25 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { MAINTENANCE_PRIORITIES, MAINTENANCE_STATUSES } from "@/lib/maintenance";
-
-async function getRequestPermissions(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { userId: null, permissions: [] as string[] };
-
-  const { data: staffRow } = await supabase
-    .from("staff")
-    .select("permissions")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return { userId: user.id, permissions: (staffRow?.permissions as string[]) ?? [] };
-}
+import { getSessionPermissions, requirePermission } from "@/lib/permissions";
+import {
+  MAINTENANCE_PRIORITIES,
+  MAINTENANCE_STATUSES,
+} from "@/lib/maintenance";
 
 const MaintenanceIssueSchema = z
   .object({
@@ -38,14 +24,15 @@ const MaintenanceIssueSchema = z
   });
 
 export type MaintenanceIssueFormState =
-  | { error: string }
-  | { success: true }
-  | undefined;
+  { error: string } | { success: true } | undefined;
 
 export async function createMaintenanceIssue(
   _prevState: MaintenanceIssueFormState,
   formData: FormData,
 ): Promise<MaintenanceIssueFormState> {
+  const denied = await requirePermission("equipas", "manutencao");
+  if (denied) return denied;
+
   const parsed = MaintenanceIssueSchema.safeParse({
     roomId: formData.get("roomId") || undefined,
     locationLabel: formData.get("locationLabel") || undefined,
@@ -56,13 +43,18 @@ export async function createMaintenanceIssue(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.from("maintenance_issues").insert({
     room_id: parsed.data.roomId || null,
-    location_label: parsed.data.roomId ? null : parsed.data.locationLabel || null,
+    location_label: parsed.data.roomId
+      ? null
+      : parsed.data.locationLabel || null,
     title: parsed.data.title,
     description: parsed.data.description || null,
     priority: parsed.data.priority,
@@ -96,6 +88,9 @@ export async function updateMaintenanceIssueDetails(
   _prevState: MaintenanceIssueFormState,
   formData: FormData,
 ): Promise<MaintenanceIssueFormState> {
+  const denied = await requirePermission("equipas", "manutencao");
+  if (denied) return denied;
+
   const parsed = EditMaintenanceIssueSchema.safeParse({
     id: formData.get("id"),
     roomId: formData.get("roomId") || undefined,
@@ -106,7 +101,10 @@ export async function updateMaintenanceIssueDetails(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos assinalados." };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Verifica os campos assinalados.",
+    };
   }
 
   const supabase = await createClient();
@@ -114,7 +112,9 @@ export async function updateMaintenanceIssueDetails(
     .from("maintenance_issues")
     .update({
       room_id: parsed.data.roomId || null,
-      location_label: parsed.data.roomId ? null : parsed.data.locationLabel || null,
+      location_label: parsed.data.roomId
+        ? null
+        : parsed.data.locationLabel || null,
       title: parsed.data.title,
       description: parsed.data.description || null,
       priority: parsed.data.priority,
@@ -122,7 +122,9 @@ export async function updateMaintenanceIssueDetails(
     .eq("id", parsed.data.id);
 
   if (error) {
-    return { error: "Não foi possível guardar as alterações. Tenta novamente." };
+    return {
+      error: "Não foi possível guardar as alterações. Tenta novamente.",
+    };
   }
 
   revalidatePath("/equipas");
@@ -137,13 +139,13 @@ export async function setMaintenanceIssueStatus(
     return { error: "Estado inválido." };
   }
 
-  const supabase = await createClient();
-  const { userId, permissions } = await getRequestPermissions(supabase);
+  const { userId, permissions } = await getSessionPermissions();
 
   if (!userId) {
     return { error: "Sessão inválida. Inicia sessão novamente." };
   }
 
+  const supabase = await createClient();
   const { data: issue } = await supabase
     .from("maintenance_issues")
     .select("assigned_to")
@@ -179,8 +181,7 @@ export async function setMaintenanceIssueAssignee(
   issueId: string,
   staffId: string | null,
 ): Promise<{ error: string } | { success: true }> {
-  const supabase = await createClient();
-  const { permissions } = await getRequestPermissions(supabase);
+  const { permissions } = await getSessionPermissions();
 
   if (!permissions.includes("equipas") && !permissions.includes("manutencao")) {
     return {
@@ -189,13 +190,16 @@ export async function setMaintenanceIssueAssignee(
     };
   }
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("maintenance_issues")
     .update({ assigned_to: staffId })
     .eq("id", issueId);
 
   if (error) {
-    return { error: "Não foi possível atribuir a ocorrência. Tenta novamente." };
+    return {
+      error: "Não foi possível atribuir a ocorrência. Tenta novamente.",
+    };
   }
 
   revalidatePath("/equipas");
@@ -205,8 +209,7 @@ export async function setMaintenanceIssueAssignee(
 export async function deleteMaintenanceIssue(
   issueId: string,
 ): Promise<{ error: string } | { success: true }> {
-  const supabase = await createClient();
-  const { permissions } = await getRequestPermissions(supabase);
+  const { permissions } = await getSessionPermissions();
 
   if (!permissions.includes("equipas") && !permissions.includes("manutencao")) {
     return {
@@ -215,6 +218,7 @@ export async function deleteMaintenanceIssue(
     };
   }
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("maintenance_issues")
     .delete()

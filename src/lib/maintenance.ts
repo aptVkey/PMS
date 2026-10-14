@@ -2,19 +2,25 @@ export const MAINTENANCE_PRIORITIES = ["baixa", "media", "alta"] as const;
 
 export type MaintenancePriority = (typeof MAINTENANCE_PRIORITIES)[number];
 
-export const MAINTENANCE_PRIORITY_LABELS: Record<MaintenancePriority, string> = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
-};
+export const MAINTENANCE_PRIORITY_LABELS: Record<MaintenancePriority, string> =
+  {
+    baixa: "Baixa",
+    media: "Média",
+    alta: "Alta",
+  };
 
-export const MAINTENANCE_PRIORITY_STYLES: Record<MaintenancePriority, string> = {
-  baixa: "bg-surface-2 text-ink-muted",
-  media: "bg-highlight text-highlight-ink",
-  alta: "bg-error/10 text-error",
-};
+export const MAINTENANCE_PRIORITY_STYLES: Record<MaintenancePriority, string> =
+  {
+    baixa: "bg-surface-2 text-ink-muted",
+    media: "bg-highlight text-highlight-ink",
+    alta: "bg-error/10 text-error",
+  };
 
-export const MAINTENANCE_STATUSES = ["reportado", "em_curso", "resolvido"] as const;
+export const MAINTENANCE_STATUSES = [
+  "reportado",
+  "em_curso",
+  "resolvido",
+] as const;
 
 export type MaintenanceStatus = (typeof MAINTENANCE_STATUSES)[number];
 

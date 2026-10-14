@@ -18,8 +18,8 @@ export function PlaceholderPage({
         <Construction className="h-8 w-8 text-ink-subdued" strokeWidth={1.5} />
         <p className="text-body font-semibold text-ink">Em construção</p>
         <p className="max-w-sm text-body text-ink-subdued">
-          Esta secção ainda não está disponível. Vamos construí-la nos
-          próximos passos.
+          Esta secção ainda não está disponível. Vamos construí-la nos próximos
+          passos.
         </p>
       </div>
     </div>

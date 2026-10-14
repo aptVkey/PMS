@@ -27,10 +27,7 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="password"
-          className="text-body font-semibold text-ink"
-        >
+        <label htmlFor="password" className="text-body font-semibold text-ink">
           Password
         </label>
         <input

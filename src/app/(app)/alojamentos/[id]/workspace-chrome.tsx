@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { PROPERTY_TYPE_LABELS, type Property } from "@/lib/property";
 import { PropertyNameForm } from "../property-name-form";
+import { PropertyDescriptionForm } from "../property-description-form";
+import { PropertyTimesForm } from "../property-times-form";
 import { ConfirmDeletePropertyModal } from "../confirm-delete-property-modal";
 
 const TABS = [
@@ -14,12 +16,19 @@ const TABS = [
   { slug: "calendario", label: "Calendário" },
   { slug: "reservas", label: "Reservas" },
   { slug: "estatisticas", label: "Estatísticas" },
+  { slug: "canais", label: "Canais" },
+  { slug: "legal", label: "Legal" },
 ] as const;
 
 export function WorkspaceChrome({ property }: { property: Property }) {
   const router = useRouter();
   const pathname = usePathname();
   const [name, setName] = useState(property.name);
+  const [description, setDescription] = useState(property.description);
+  const [times, setTimes] = useState({
+    checkIn: property.check_in_time ?? "15:00:00",
+    checkOut: property.check_out_time ?? "11:00:00",
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const base = `/alojamentos/${property.id}`;
@@ -44,6 +53,21 @@ export function WorkspaceChrome({ property }: { property: Property }) {
           <p className="mt-1 text-body text-ink-muted">
             {PROPERTY_TYPE_LABELS[property.property_type]}
           </p>
+          <div className="mt-2">
+            <PropertyDescriptionForm
+              propertyId={property.id}
+              description={description}
+              onSaved={setDescription}
+            />
+          </div>
+          <div className="mt-2">
+            <PropertyTimesForm
+              propertyId={property.id}
+              checkInTime={times.checkIn}
+              checkOutTime={times.checkOut}
+              onSaved={setTimes}
+            />
+          </div>
         </div>
 
         <button

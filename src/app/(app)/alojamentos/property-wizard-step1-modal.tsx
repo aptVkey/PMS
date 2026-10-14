@@ -13,9 +13,14 @@ export function PropertyWizardStep1Modal({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (propertyId: string, name: string, isMultiUnidade: boolean) => void;
+  onCreated: (
+    propertyId: string,
+    name: string,
+    isMultiUnidade: boolean,
+  ) => void;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [isMultiUnidade, setIsMultiUnidade] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +32,11 @@ export function PropertyWizardStep1Modal({
       return;
     }
     startTransition(async () => {
-      const result = await createProperty(name.trim(), isMultiUnidade);
+      const result = await createProperty(
+        name.trim(),
+        isMultiUnidade,
+        description.trim() || undefined,
+      );
       if ("error" in result) {
         setError(result.error);
         return;
@@ -66,6 +75,24 @@ export function PropertyWizardStep1Modal({
             />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="propertyDescription" className={labelClasses}>
+              Descrição{" "}
+              <span className="font-normal text-ink-subdued">(opcional)</span>
+            </label>
+            <textarea
+              id="propertyDescription"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Apresenta o alojamento: localização, ambiente, o que o torna especial..."
+              className={`${inputClasses} min-h-0 py-2`}
+            />
+            <p className="text-[12px] text-ink-subdued">
+              Aparece na página pública do alojamento. Podes editar mais tarde.
+            </p>
+          </div>
+
           <label className="flex items-start gap-2.5 text-body text-ink">
             <input
               type="checkbox"
@@ -79,9 +106,9 @@ export function PropertyWizardStep1Modal({
               </span>
               <br />
               <span className="text-[12px] text-ink-subdued">
-                Marca esta opção se este alojamento é um prédio ou complexo
-                com várias tipologias e vários quartos/apartamentos. Se for
-                uma única unidade, deixa por marcar.
+                Marca esta opção se este alojamento é um prédio ou complexo com
+                várias tipologias e vários quartos/apartamentos. Se for uma
+                única unidade, deixa por marcar.
               </span>
             </span>
           </label>

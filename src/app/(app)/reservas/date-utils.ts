@@ -1,13 +1,10 @@
 import { formatISO, MONTH_ABBREV } from "@/lib/date-utils";
 
 export {
-  pad2,
-  formatISO,
   todayISO,
   addDaysISO,
   diffDaysISO,
   formatDateLabel,
-  MONTH_ABBREV,
   WEEKDAY_LABELS,
 } from "@/lib/date-utils";
 
