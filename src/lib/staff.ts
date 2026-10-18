@@ -2,6 +2,7 @@ export const PERMISSION_KEYS = [
   "quartos",
   "equipas",
   "limpeza",
+  "gerir_limpeza",
   "manutencao",
   "hospedes",
   "reservas",
@@ -18,7 +19,8 @@ export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   quartos: "Alojamentos",
   equipas: "Equipas e tarefas (gerir equipa)",
-  limpeza: "Equipas e tarefas (limpeza)",
+  limpeza: "Limpeza (executar tarefas atribuídas)",
+  gerir_limpeza: "Limpeza (chefia e atribuição de tarefas)",
   manutencao: "Equipas e tarefas (manutenção)",
   hospedes: "Hóspedes / CRM",
   reservas: "Reservas e pagamentos",

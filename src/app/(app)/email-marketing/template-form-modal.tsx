@@ -30,8 +30,8 @@ export function TemplateFormModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {template ? "Editar modelo" : "Novo modelo"}
           </h2>
@@ -47,10 +47,11 @@ export function TemplateFormModal({
 
         <form
           action={formAction}
-          className="flex flex-col gap-4 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-4 overflow-y-auto px-6 py-5"
         >
           {template && <input type="hidden" name="id" value={template.id} />}
 
+          <h3 className="ui-form-section-title">Detalhes do modelo</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className={labelClasses}>
               Nome interno
@@ -107,7 +108,7 @@ export function TemplateFormModal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

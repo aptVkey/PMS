@@ -127,7 +127,7 @@ export function ReservasClient({
         )}
         <div className="flex items-center gap-3">
           {!lockView && (
-            <div className="flex rounded-md border border-border p-0.5">
+            <div className="ui-segmented flex rounded-md border border-border p-0.5">
               <button
                 type="button"
                 onClick={() => setView("calendario")}

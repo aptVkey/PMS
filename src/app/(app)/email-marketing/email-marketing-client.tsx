@@ -59,7 +59,7 @@ export function EmailMarketingClient({
         </p>
       </div>
 
-      <div className="flex rounded-md border border-border p-0.5 sm:w-fit">
+      <div className="ui-segmented flex rounded-md border border-border p-0.5 sm:w-fit">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}

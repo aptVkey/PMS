@@ -59,13 +59,13 @@ export function RoomCard({
         )}
       </div>
 
-      <div className="p-4">
-        <p className="text-body font-bold text-ink">{room.name}</p>
+      <div className="p-5">
+        <p className="text-[17px] font-semibold tracking-tight text-ink">{room.name}</p>
         <p className="text-[12px] text-ink-subdued">
           {ROOM_TYPE_LABELS[room.type]}
         </p>
 
-        <div className="mt-3 flex items-center gap-4 text-[12px] text-ink-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-[12px] text-ink-muted">
           <span className="flex items-center gap-1">
             <Users className="h-3.5 w-3.5" strokeWidth={2} />
             {totalGuests}
@@ -81,14 +81,14 @@ export function RoomCard({
           </span>
         </div>
 
-        <p className="mt-3 text-body font-bold text-ink">
+        <p className="mt-5 text-[20px] font-semibold tracking-tight text-ink">
           {room.base_price > 0 ? (
             <>
               {new Intl.NumberFormat("pt-PT", {
                 style: "currency",
                 currency: room.currency,
               }).format(room.base_price)}
-              <span className="font-normal text-ink-subdued"> / noite</span>
+              <span className="text-[12px] font-normal text-ink-subdued"> / noite</span>
             </>
           ) : (
             <span className="font-normal text-ink-subdued">

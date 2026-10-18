@@ -26,8 +26,8 @@ export function FlowFormModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex w-full max-w-md flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex w-full max-w-md flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {flow ? "Editar fluxo" : "Novo fluxo"}
           </h2>
@@ -41,7 +41,7 @@ export function FlowFormModal({
           </button>
         </div>
 
-        <form action={formAction} className="flex flex-col gap-4 px-6 py-5">
+        <form action={formAction} className="ui-form-scroll flex flex-col gap-4 overflow-y-auto px-6 py-5">
           {flow && <input type="hidden" name="id" value={flow.id} />}
 
           <div className="flex flex-col gap-1.5">
@@ -78,7 +78,7 @@ export function FlowFormModal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

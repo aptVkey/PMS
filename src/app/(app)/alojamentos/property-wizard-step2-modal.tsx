@@ -76,8 +76,8 @@ export function PropertyWizardStep2Modal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             Tipologias e unidades
           </h2>
@@ -93,7 +93,7 @@ export function PropertyWizardStep2Modal({
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
         >
           <p className="text-body text-ink-muted">
             Indica as tipologias deste alojamento (ex: T1, T2, Suite) e os
@@ -180,7 +180,7 @@ export function PropertyWizardStep2Modal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

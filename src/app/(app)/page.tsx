@@ -1,10 +1,13 @@
 import {
   BedDouble,
+  CalendarDays,
+  ClipboardList,
   LogIn,
   LogOut,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
+import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateLabel, todayISO } from "@/lib/date-utils";
 import {
@@ -130,55 +133,49 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[24px] font-bold text-ink">Início</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+        <p className="ui-eyebrow">O teu centro de operações</p>
+        <h1 className="text-[24px] font-bold text-ink">Visão geral</h1>
         <p className="mt-1 text-body text-ink-muted">
-          Visão geral do teu hotel hoje.
+          Reservas, equipa e alojamentos. Tudo num só lugar.
         </p>
+        </div>
+        <span className="flex items-center gap-2 rounded-md border border-border bg-canvas px-3 py-2 text-[12px] text-ink-muted"><CalendarDays className="h-3.5 w-3.5" />{formatDateLabel(today)}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className="rounded-lg border border-border bg-canvas p-5 shadow-card"
-          >
-            <div className="flex items-center gap-2 text-ink-subdued">
-              <Icon className="h-4 w-4" strokeWidth={2} />
-              <span className="text-body">{label}</span>
-            </div>
-            <p className="mt-2 text-[28px] font-bold leading-tight text-ink">
-              {value}
-            </p>
-          </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {kpis.map(({ label, value, icon }) => (
+          <KpiCard key={label} label={label} value={value} icon={icon} />
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-canvas p-6 shadow-card">
-          <h2 className="text-body font-bold text-ink">Próximas reservas</h2>
+        <div className="overflow-hidden rounded-lg border border-border bg-canvas shadow-card">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-5"><div><h2 className="text-body font-semibold text-ink">Próximas reservas</h2><p className="mt-1 text-[12px] text-ink-subdued">As próximas chegadas ao teu alojamento.</p></div><CalendarDays className="h-4 w-4 shrink-0 text-ink-subdued" strokeWidth={1.6} /></div>
           {upcomingBookings.length === 0 ? (
-            <p className="mt-4 text-body text-ink-subdued">
+            <p className="px-5 py-12 text-center text-body text-ink-subdued">
               Sem reservas agendadas.
             </p>
           ) : (
-            <ul className="mt-4 flex flex-col gap-3">
+            <ul className="flex flex-col divide-y divide-border">
               {upcomingBookings.map((booking) => (
                 <li
                   key={booking.id}
-                  className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+                  className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-surface-1/50"
                 >
-                  <div>
-                    <p className="text-body font-semibold text-ink">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-1 text-primary"><BedDouble className="h-4 w-4" strokeWidth={1.6} /></span>
+                    <div><p className="text-body font-semibold text-ink">
                       {booking.guest?.name ?? "—"}
                     </p>
                     <p className="text-[12px] text-ink-subdued">
                       {booking.room?.name ?? "—"} · Check-in{" "}
                       {formatDateLabel(booking.check_in)}
-                    </p>
+                    </p></div>
                   </div>
                   <span
-                    className={`rounded-pill px-3 py-1 text-[12px] font-semibold ${BOOKING_STATUS_STYLES[booking.status]}`}
+                    className={`shrink-0 rounded-pill px-2.5 py-1 text-[10px] font-semibold ${BOOKING_STATUS_STYLES[booking.status]}`}
                   >
                     {BOOKING_STATUS_LABELS[booking.status]}
                   </span>
@@ -188,18 +185,18 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-canvas p-6 shadow-card">
-          <h2 className="text-body font-bold text-ink">Tarefas pendentes</h2>
+        <div className="overflow-hidden rounded-lg border border-border bg-canvas shadow-card">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-5"><div><h2 className="text-body font-semibold text-ink">Tarefas pendentes</h2><p className="mt-1 text-[12px] text-ink-subdued">Limpeza e manutenção por acompanhar.</p></div><ClipboardList className="h-4 w-4 shrink-0 text-ink-subdued" strokeWidth={1.6} /></div>
           {pendingTasks.length === 0 ? (
-            <p className="mt-4 text-body text-ink-subdued">
+            <p className="px-5 py-12 text-center text-body text-ink-subdued">
               Sem tarefas pendentes.
             </p>
           ) : (
-            <ul className="mt-4 flex flex-col gap-3">
+            <ul className="flex flex-col divide-y divide-border">
               {pendingTasks.map((task) => (
                 <li
                   key={task.id}
-                  className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+                  className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-surface-1/50"
                 >
                   <div>
                     <p className="text-body font-semibold text-ink">
@@ -210,7 +207,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <span
-                    className={`rounded-pill px-3 py-1 text-[12px] font-semibold ${task.badgeStyle}`}
+                    className={`shrink-0 rounded-pill px-2.5 py-1 text-[10px] font-semibold ${task.badgeStyle}`}
                   >
                     {task.badgeLabel}
                   </span>

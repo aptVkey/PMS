@@ -49,15 +49,17 @@ export function RatePeriodFormModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-canvas p-6 shadow-popover">
+      <div className="flex w-full max-w-md flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header border-b border-border px-6 py-4">
         <h2 className="text-[18px] font-bold text-ink">
           {period ? "Editar período" : "Novo período sazonal"}
         </h2>
         <p className="mt-1 text-body text-ink-muted">
           Define uma tarifa diferente da base para um intervalo de datas.
         </p>
+        </div>
 
-        <form action={formAction} className="mt-5 flex flex-col gap-4">
+        <form action={formAction} className="ui-form-scroll flex flex-col gap-4 overflow-y-auto px-6 py-5">
           <input type="hidden" name="roomId" value={roomId} />
           {period && <input type="hidden" name="id" value={period.id} />}
 
@@ -194,7 +196,7 @@ export function RatePeriodFormModal({
             </p>
           )}
 
-          <div className="mt-2 flex justify-end gap-3">
+          <div className="ui-form-footer mt-2 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}

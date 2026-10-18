@@ -104,8 +104,8 @@ export function BookingFormModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {booking
               ? `Editar reserva · ${formatBookingCode(booking.booking_number)}`
@@ -121,7 +121,7 @@ export function BookingFormModal({
           </button>
         </div>
 
-        <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
+        <div className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5">
           <form
             id="booking-form"
             action={formAction}
@@ -129,6 +129,7 @@ export function BookingFormModal({
           >
             {booking && <input type="hidden" name="id" value={booking.id} />}
 
+            <h3 className="ui-form-section-title">Hóspede e quarto</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="guestId" className={labelClasses}>
@@ -186,6 +187,7 @@ export function BookingFormModal({
               </div>
             </div>
 
+            <h3 className="ui-form-section-title">Datas da estadia</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="checkIn" className={labelClasses}>
@@ -281,6 +283,7 @@ export function BookingFormModal({
               </div>
             </div>
 
+            <h3 className="ui-form-section-title">Estado e valor</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="status" className={labelClasses}>
@@ -317,6 +320,7 @@ export function BookingFormModal({
               </div>
             </div>
 
+            <h3 className="ui-form-section-title">Informações adicionais</h3>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="channel" className={labelClasses}>
                 Canal / Origem
@@ -375,7 +379,7 @@ export function BookingFormModal({
 
           {booking && <PaymentsSection booking={booking} />}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

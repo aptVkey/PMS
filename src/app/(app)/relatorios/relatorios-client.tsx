@@ -28,13 +28,14 @@ import {
 import {
   PERIOD_PRESETS,
   PERIOD_PRESET_LABELS,
+  buildComparison,
+  computePeriodMetrics,
   elapsedHours,
   formatCurrency,
   formatHours,
   formatPeriodLabel,
   getPresetRange,
-  nightsOverlap,
-  proratedRevenue,
+  shiftYearBack,
   type PeriodPreset,
   type ReportingBooking,
   type ReportingCleaningTask,
@@ -96,65 +97,79 @@ export function RelatoriosClient({
     [periodBookings],
   );
 
-  const revenue = activeBookings.reduce((sum, b) => sum + b.total_amount, 0);
-  const paid = activeBookings.reduce(
-    (sum, b) => sum + (b.payments ?? []).reduce((s, p) => s + p.amount, 0),
-    0,
-  );
-  const pending = Math.max(0, revenue - paid);
-  const avgBookingValue =
-    activeBookings.length > 0 ? revenue / activeBookings.length : 0;
-
-  const nonCancelledBookings = useMemo(
-    () => bookings.filter((b) => b.status !== "cancelada"),
-    [bookings],
+  // Período homólogo: as mesmas datas, um ano antes.
+  const previousRange = useMemo(
+    () => ({
+      start: shiftYearBack(range.start),
+      end: shiftYearBack(range.end),
+    }),
+    [range],
   );
 
-  const roomNights = useMemo(
-    () =>
-      nonCancelledBookings.reduce(
-        (sum, b) =>
-          sum + nightsOverlap(b.check_in, b.check_out, range.start, range.end),
-        0,
-      ),
-    [nonCancelledBookings, range],
+  const metrics = useMemo(
+    () => computePeriodMetrics(bookings, rooms.length, range),
+    [bookings, rooms.length, range],
   );
-  const availableNights = rooms.length * daysInRange;
-  const occupancyRate = availableNights > 0 ? roomNights / availableNights : 0;
-
-  // Receita atribuída às noites do período (não à data de check-in), para
-  // ADR/RevPAR/TrevPAR consistentes com room nights e ocupação.
-  const nightBasedRevenue = useMemo(
-    () =>
-      nonCancelledBookings.reduce(
-        (sum, b) =>
-          sum +
-          proratedRevenue(
-            b.check_in,
-            b.check_out,
-            b.total_amount,
-            range.start,
-            range.end,
-          ),
-        0,
-      ),
-    [nonCancelledBookings, range],
+  const previous = useMemo(
+    () => computePeriodMetrics(bookings, rooms.length, previousRange),
+    [bookings, rooms.length, previousRange],
   );
 
-  const adr = roomNights > 0 ? nightBasedRevenue / roomNights : 0;
-  const revPar = availableNights > 0 ? nightBasedRevenue / availableNights : 0;
-  // Sem outras fontes de receita registadas além das reservas, por agora
-  // o TrevPAR coincide com o RevPAR.
-  const trevPar = revPar;
+  const {
+    revenue,
+    pending,
+    avgBookingValue,
+    roomNights,
+    availableNights,
+    occupancyRate,
+    adr,
+    revPar,
+    trevPar,
+    avgLengthOfStay,
+  } = metrics;
 
-  const avgLengthOfStay = useMemo(() => {
-    if (activeBookings.length === 0) return 0;
-    const totalNights = activeBookings.reduce(
-      (sum, b) => sum + diffDaysISO(b.check_in, b.check_out),
-      0,
-    );
-    return totalNights / activeBookings.length;
-  }, [activeBookings]);
+  // Sem reservas no período homólogo não há base de comparação — mostra
+  // "sem dados" em vez de variações enganosas.
+  const hasBase = previous.totalBookings > 0 || previous.roomNights > 0;
+  const money = formatCurrency;
+  const compare = {
+    revenue: buildComparison(revenue, previous.revenue, hasBase, money),
+    occupancy: buildComparison(
+      occupancyRate,
+      previous.occupancyRate,
+      hasBase,
+      (v) => `${(v * 100).toFixed(1)}%`,
+      "pp",
+    ),
+    bookings: buildComparison(
+      metrics.bookingCount,
+      previous.bookingCount,
+      hasBase,
+      String,
+    ),
+    guests: buildComparison(metrics.guests, previous.guests, hasBase, String),
+    adr: buildComparison(adr, previous.adr, hasBase, money),
+    revPar: buildComparison(revPar, previous.revPar, hasBase, money),
+    trevPar: buildComparison(trevPar, previous.trevPar, hasBase, money),
+    roomNights: buildComparison(
+      roomNights,
+      previous.roomNights,
+      hasBase,
+      String,
+    ),
+    alos: buildComparison(
+      avgLengthOfStay,
+      previous.avgLengthOfStay,
+      hasBase,
+      (v) => `${v.toFixed(1)} noites`,
+    ),
+    avgBooking: buildComparison(
+      avgBookingValue,
+      previous.avgBookingValue,
+      hasBase,
+      money,
+    ),
+  };
 
   const statusBreakdown = useMemo(() => {
     const counts = new Map<BookingStatus, number>();
@@ -273,8 +288,8 @@ export function RelatoriosClient({
     const totalCost = completed.reduce(
       (sum, t) =>
         sum +
-        elapsedHours(t.started_at, t.completed_at) *
-          (t.assignee?.hourly_rate ?? 0),
+        (t.result?.total_cost ?? (elapsedHours(t.started_at, t.completed_at) *
+          (t.assignee?.hourly_rate ?? 0))),
       0,
     );
     return { count: completed.length, totalHours, totalCost };
@@ -355,7 +370,8 @@ export function RelatoriosClient({
       </div>
 
       <p className="text-[12px] text-ink-subdued">
-        A mostrar dados de {formatPeriodLabel(range.start, range.end)}
+        A mostrar dados de {formatPeriodLabel(range.start, range.end)} · a
+        comparar com {formatPeriodLabel(previousRange.start, previousRange.end)}
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -364,23 +380,27 @@ export function RelatoriosClient({
           value={formatCurrency(revenue)}
           icon={Euro}
           hint={`${formatCurrency(pending)} por cobrar`}
+          comparison={compare.revenue}
         />
         <KpiCard
           label="Taxa de ocupação"
           value={`${Math.round(occupancyRate * 100)}%`}
           icon={BedDouble}
           hint={`${roomNights} noites ocupadas`}
+          comparison={compare.occupancy}
         />
         <KpiCard
           label="Reservas"
           value={String(activeBookings.length)}
           icon={Calendar}
+          comparison={compare.bookings}
         />
         <KpiCard
           label="Hóspedes"
           value={String(guestStats.totalPeople)}
           icon={Users}
           hint={`${guestStats.repeat} hóspedes recorrentes`}
+          comparison={compare.guests}
         />
       </div>
 
@@ -397,34 +417,40 @@ export function RelatoriosClient({
             value={formatCurrency(adr)}
             icon={Receipt}
             hint="Valor médio por noite vendida"
+            comparison={compare.adr}
           />
           <KpiCard
             label="RevPAR"
             value={formatCurrency(revPar)}
             icon={TrendingUp}
             hint="Receita por quarto disponível"
+            comparison={compare.revPar}
           />
           <KpiCard
             label="TrevPAR"
             value={formatCurrency(trevPar)}
             icon={LineChart}
             hint="Igual ao RevPAR (sem outras receitas registadas)"
+            comparison={compare.trevPar}
           />
           <KpiCard
             label="Room nights"
             value={String(roomNights)}
             icon={Moon}
             hint={`de ${availableNights} disponíveis`}
+            comparison={compare.roomNights}
           />
           <KpiCard
             label="Duração média de estadia"
             value={`${avgLengthOfStay.toFixed(1)} noites`}
             icon={CalendarRange}
+            comparison={compare.alos}
           />
           <KpiCard
             label="Valor médio de reserva"
             value={formatCurrency(avgBookingValue)}
             icon={Wallet}
+            comparison={compare.avgBooking}
           />
         </div>
       </div>

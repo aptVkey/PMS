@@ -27,6 +27,7 @@ export type ReportingBooking = {
 };
 
 export type ReportingCleaningTask = {
+  result?: { total_cost: number | null } | null;
   status: "pendente" | "em_curso" | "concluida";
   started_at: string | null;
   completed_at: string | null;
@@ -144,4 +145,148 @@ export function formatHours(hours: number): string {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+// ---------- Comparação com o ano anterior ----------
+
+// Mesmas datas, um ano antes (29 Fev passa a 28 Fev em anos não bissextos).
+export function shiftYearBack(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const year = y - 1;
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const day = m === 2 && d === 29 && !isLeap ? 28 : d;
+  return `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export type PeriodMetrics = {
+  // Número de reservas (qualquer estado) que entram no período — se for 0,
+  // não há base para comparar.
+  totalBookings: number;
+  bookingCount: number;
+  revenue: number;
+  paid: number;
+  pending: number;
+  avgBookingValue: number;
+  roomNights: number;
+  availableNights: number;
+  occupancyRate: number;
+  adr: number;
+  revPar: number;
+  trevPar: number;
+  avgLengthOfStay: number;
+  guests: number;
+  repeatGuests: number;
+};
+
+// Todas as métricas do separador de reporting para um período, numa função
+// pura — assim o mesmo cálculo serve o período atual e o homólogo.
+export function computePeriodMetrics(
+  bookings: ReportingBooking[],
+  roomCount: number,
+  range: { start: string; end: string },
+): PeriodMetrics {
+  const daysInRange = diffDaysISO(range.start, range.end) + 1;
+
+  const periodBookings = bookings.filter(
+    (b) => b.check_in >= range.start && b.check_in <= range.end,
+  );
+  const active = periodBookings.filter((b) => b.status !== "cancelada");
+
+  const revenue = active.reduce((sum, b) => sum + b.total_amount, 0);
+  const paid = active.reduce(
+    (sum, b) => sum + (b.payments ?? []).reduce((s, p) => s + p.amount, 0),
+    0,
+  );
+
+  const nonCancelled = bookings.filter((b) => b.status !== "cancelada");
+  const roomNights = nonCancelled.reduce(
+    (sum, b) =>
+      sum + nightsOverlap(b.check_in, b.check_out, range.start, range.end),
+    0,
+  );
+  const availableNights = roomCount * daysInRange;
+  const nightBasedRevenue = nonCancelled.reduce(
+    (sum, b) =>
+      sum +
+      proratedRevenue(
+        b.check_in,
+        b.check_out,
+        b.total_amount,
+        range.start,
+        range.end,
+      ),
+    0,
+  );
+
+  const revPar = availableNights > 0 ? nightBasedRevenue / availableNights : 0;
+
+  const totalNights = active.reduce(
+    (sum, b) => sum + diffDaysISO(b.check_in, b.check_out),
+    0,
+  );
+
+  const distinctGuests = new Map<string, number>();
+  let guests = 0;
+  for (const b of active) {
+    if (b.guest) distinctGuests.set(b.guest_id, b.guest.visit_count);
+    guests += b.num_adults + b.num_children + b.num_infants;
+  }
+
+  return {
+    totalBookings: periodBookings.length,
+    bookingCount: active.length,
+    revenue,
+    paid,
+    pending: Math.max(0, revenue - paid),
+    avgBookingValue: active.length > 0 ? revenue / active.length : 0,
+    roomNights,
+    availableNights,
+    occupancyRate: availableNights > 0 ? roomNights / availableNights : 0,
+    adr: roomNights > 0 ? nightBasedRevenue / roomNights : 0,
+    revPar,
+    // Sem outras receitas registadas, o TrevPAR coincide com o RevPAR.
+    trevPar: revPar,
+    avgLengthOfStay: active.length > 0 ? totalNights / active.length : 0,
+    guests,
+    repeatGuests: Array.from(distinctGuests.values()).filter((v) => v > 1)
+      .length,
+  };
+}
+
+export type Comparison = {
+  // null quando o período homólogo não tem dados ou o valor anterior é 0.
+  delta: number | null;
+  unit: "%" | "pp";
+  previous: string;
+  hasBase: boolean;
+};
+
+// Variação percentual face ao ano anterior (ou em pontos percentuais, para
+// taxas como a ocupação).
+export function buildComparison(
+  current: number,
+  previous: number,
+  hasBase: boolean,
+  format: (value: number) => string,
+  unit: "%" | "pp" = "%",
+): Comparison {
+  if (!hasBase) {
+    return { delta: null, unit, previous: format(previous), hasBase: false };
+  }
+
+  if (unit === "pp") {
+    return {
+      delta: (current - previous) * 100,
+      unit,
+      previous: format(previous),
+      hasBase: true,
+    };
+  }
+
+  return {
+    delta: previous > 0 ? ((current - previous) / previous) * 100 : null,
+    unit,
+    previous: format(previous),
+    hasBase: true,
+  };
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Sparkles, Users, Wrench } from "lucide-react";
 import type { StaffMember, PermissionKey } from "@/lib/staff";
-import type { CleaningTask } from "@/lib/cleaning";
+import type { CleaningProgress, CleaningTask } from "@/lib/cleaning";
 import type { MaintenanceIssue } from "@/lib/maintenance";
 import { StaffRow } from "./staff-row";
 import { StaffFormModal } from "./staff-form-modal";
@@ -32,6 +32,7 @@ export function EquipasClient({
   staff,
   rooms,
   cleaningTasks,
+  cleaningProgress,
   maintenanceIssues,
   currentUserId,
   permissions,
@@ -39,6 +40,7 @@ export function EquipasClient({
   staff: StaffMember[];
   rooms: { id: string; name: string }[];
   cleaningTasks: CleaningTask[];
+  cleaningProgress: Record<string, CleaningProgress>;
   maintenanceIssues: MaintenanceIssue[];
   currentUserId: string;
   permissions: PermissionKey[];
@@ -47,19 +49,20 @@ export function EquipasClient({
   // Administradores (permissão "equipas") veem sempre todos os sub-separadores.
   const availableTabs = useMemo(
     () =>
-      TABS.filter((t) => canManageTeam || permissions.includes(t.permission)),
+      TABS.filter((t) => canManageTeam || permissions.includes(t.permission) || (t.key === "limpeza" && permissions.includes("gerir_limpeza"))),
     [permissions, canManageTeam],
   );
   const [tab, setTab] = useState<Tab>(availableTabs[0]?.key ?? "equipa");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const canSeeLimpeza = canManageTeam || permissions.includes("limpeza");
+  const canSeeLimpeza = canManageTeam || permissions.includes("limpeza") || permissions.includes("gerir_limpeza");
   const canSeeManutencao = canManageTeam || permissions.includes("manutencao");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <p className="ui-eyebrow">Operação</p>
           <h1 className="text-[24px] font-bold text-ink">Equipas e tarefas</h1>
           <p className="mt-1 text-body text-ink-muted">
             Gere a equipa, permissões, limpeza e manutenção.
@@ -77,13 +80,14 @@ export function EquipasClient({
         )}
       </div>
 
-      <div className="flex rounded-md border border-border p-0.5 sm:w-fit">
+      <div className="ui-segmented flex rounded-md border border-border p-0.5 sm:w-fit">
         {availableTabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard sm:flex-none ${
+            aria-pressed={tab === key}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-[12px] font-semibold transition-colors duration-fast ease-standard sm:flex-none sm:px-3 sm:text-body ${
               tab === key
                 ? "bg-surface-2 text-primary"
                 : "text-ink-muted hover:bg-surface-1"
@@ -91,6 +95,7 @@ export function EquipasClient({
           >
             <Icon className="h-4 w-4" strokeWidth={2} />
             {label}
+            {key === "equipa" && <span className="ml-1 hidden rounded bg-primary/5 px-1.5 py-0.5 text-[10px] tabular-nums sm:inline">{staff.length}</span>}
           </button>
         ))}
       </div>
@@ -109,6 +114,10 @@ export function EquipasClient({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border bg-canvas shadow-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-5">
+              <div><h2 className="text-body font-semibold text-ink">Membros da equipa</h2><p className="mt-1 text-[12px] text-ink-subdued">Pessoas, responsabilidades e acessos.</p></div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-border px-2.5 py-1 text-[11px] text-ink-muted"><span className="h-1.5 w-1.5 rounded-pill bg-success" />{staff.filter(member => member.active).length} {staff.filter(member => member.active).length === 1 ? "ativo" : "ativos"}</span>
+            </div>
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border bg-surface-1 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued">
@@ -135,6 +144,7 @@ export function EquipasClient({
       {tab === "limpeza" && canSeeLimpeza && (
         <LimpezaSection
           tasks={cleaningTasks}
+          progress={cleaningProgress}
           rooms={rooms}
           staff={staff}
           currentUserId={currentUserId}

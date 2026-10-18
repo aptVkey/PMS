@@ -46,8 +46,8 @@ export function MaintenanceIssueFormModal({
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {issue ? "Editar ocorrência" : "Adicionar ocorrência"}
           </h2>
@@ -63,13 +63,13 @@ export function MaintenanceIssueFormModal({
 
         <form
           action={formAction}
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
         >
           {issue && <input type="hidden" name="id" value={issue.id} />}
 
           <div className="flex flex-col gap-1.5">
             <p className={labelClasses}>Localização</p>
-            <div className="flex rounded-md border border-border p-0.5 sm:w-fit">
+            <div className="ui-segmented flex rounded-md border border-border p-0.5 sm:w-fit">
               <button
                 type="button"
                 onClick={() => setLocationType("room")}
@@ -119,6 +119,7 @@ export function MaintenanceIssueFormModal({
             )}
           </div>
 
+          <h3 className="ui-form-section-title">Detalhes da ocorrência</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="title" className={labelClasses}>
               Título
@@ -172,7 +173,7 @@ export function MaintenanceIssueFormModal({
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex items-center justify-between gap-3 border-t border-border pt-4">
             {issue && canDelete ? (
               <button
                 type="button"

@@ -22,5 +22,5 @@ export function ModalPortal({ children }: { children: React.ReactNode }) {
 
   if (!mounted) return null;
 
-  return createPortal(children, document.body);
+  return createPortal(<div className="app-ui contents">{children}</div>, document.body);
 }

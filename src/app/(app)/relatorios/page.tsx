@@ -29,7 +29,7 @@ export default async function RelatoriosPage() {
       .order("check_in", { ascending: false }),
     supabase
       .from("cleaning_tasks")
-      .select("status, started_at, completed_at, assignee:staff(hourly_rate)"),
+      .select("id, status, started_at, completed_at, assignee:staff(hourly_rate)"),
     supabase
       .from("maintenance_issues")
       .select(
@@ -43,13 +43,20 @@ export default async function RelatoriosPage() {
   const permissions = currentStaff?.permissions ?? [];
   const isAdmin = permissions.includes("equipas");
 
+  const { data: cleaningResults } = isAdmin
+    ? await supabase.from("cleaning_task_results").select("task_id, total_cost")
+    : { data: [] };
+  const resultByTask = new Map((cleaningResults ?? []).map(result => [result.task_id, result]));
+  const cleaningWithResults = ((cleaningTasks ?? []) as unknown as (ReportingCleaningTask & { id: string })[])
+    .map(task => ({ ...task, result: resultByTask.get(task.id) ?? null }));
+
   return (
     <RelatoriosClient
       bookings={(bookings as unknown as ReportingBooking[]) ?? []}
       rooms={(rooms as { id: string; name: string }[]) ?? []}
       cleaningTasks={
         isAdmin
-          ? ((cleaningTasks as unknown as ReportingCleaningTask[]) ?? [])
+          ? cleaningWithResults
           : []
       }
       maintenanceIssues={

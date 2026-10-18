@@ -41,8 +41,8 @@ export function CleaningTaskFormModal({
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {task ? "Editar tarefa de limpeza" : "Adicionar tarefa de limpeza"}
           </h2>
@@ -58,7 +58,7 @@ export function CleaningTaskFormModal({
 
         <form
           action={formAction}
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
         >
           {task && <input type="hidden" name="id" value={task.id} />}
 
@@ -69,6 +69,7 @@ export function CleaningTaskFormModal({
             </p>
           )}
 
+          <h3 className="ui-form-section-title">Dados da limpeza</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="roomId" className={labelClasses}>
               Quarto
@@ -140,7 +141,7 @@ export function CleaningTaskFormModal({
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex items-center justify-between gap-3 border-t border-border pt-4">
             {task && isManual ? (
               <button
                 type="button"

@@ -22,7 +22,7 @@ const PUBLIC_PATHS = [
 
 const PATH_PERMISSIONS: Record<string, string[]> = {
   "/alojamentos": ["quartos"],
-  "/equipas": ["equipas", "limpeza", "manutencao"],
+  "/equipas": ["equipas", "limpeza", "gerir_limpeza", "manutencao"],
   "/hospedes": ["hospedes"],
   "/reservas": ["reservas"],
   "/automacao": ["automacao"],

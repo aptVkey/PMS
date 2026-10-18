@@ -47,8 +47,8 @@ export function PropertyWizardStep1Modal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="w-full max-w-md rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">Novo alojamento</h2>
           <button
             type="button"
@@ -60,7 +60,7 @@ export function PropertyWizardStep1Modal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-6 py-5">
+        <form onSubmit={handleSubmit} className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="propertyName" className={labelClasses}>
               Nome do alojamento
@@ -119,7 +119,7 @@ export function PropertyWizardStep1Modal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

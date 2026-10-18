@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { StaffMember } from "@/lib/staff";
-import type { CleaningTask } from "@/lib/cleaning";
+import type { CleaningProgress, CleaningTask, CleaningTaskResult } from "@/lib/cleaning";
+import { addDaysISO, todayISO } from "@/lib/date-utils";
 import type { MaintenanceIssue } from "@/lib/maintenance";
 import { EquipasClient } from "./equipas-client";
 
@@ -13,6 +14,7 @@ export default async function EquipasPage() {
     { data: rooms },
     { data: cleaningTasks },
     { data: maintenanceIssues },
+    { data: progressRows },
   ] = await Promise.all([
     supabase.from("staff").select("*").order("created_at"),
     supabase.auth.getUser(),
@@ -27,7 +29,18 @@ export default async function EquipasPage() {
       .from("maintenance_issues")
       .select("*, room:rooms(name), assignee:staff(name, hourly_rate)")
       .order("created_at"),
+    // Progresso da checklist por tarefa, numa janela à volta de hoje.
+    supabase.rpc("cleaning_task_progress", {
+      p_from: addDaysISO(todayISO(), -14),
+      p_to: addDaysISO(todayISO(), 60),
+    }),
   ]);
+
+  const cleaningProgress: Record<string, CleaningProgress> = {};
+  for (const row of (progressRows as
+    { task_id: string; total: number; done: number }[] | null) ?? []) {
+    cleaningProgress[row.task_id] = { done: row.done, total: row.total };
+  }
 
   const currentUserId = authData.user?.id ?? "";
   const staffList = (staff as StaffMember[]) ?? [];
@@ -35,20 +48,23 @@ export default async function EquipasPage() {
   const permissions = currentStaff?.permissions ?? [];
   const isAdmin = permissions.includes("equipas");
 
-  // O tempo/custo de limpeza e manutenção e o valor à hora são sensíveis: só
+  // Os custos e valores à hora são sensíveis: só
   // o Administrador (permissão "equipas") os recebe. Para os restantes,
   // removemos antes de enviar para o cliente — nunca chegam ao browser.
+  // O executor recebe os horários da limpeza para acompanhar o cronómetro.
   const staffForClient = isAdmin
     ? staffList
     : staffList.map((member) => ({ ...member, hourly_rate: null }));
 
+  const { data: cleaningResults } = isAdmin
+    ? await supabase.from("cleaning_task_results").select("*")
+    : { data: [] };
+  const resultsByTask = new Map(((cleaningResults ?? []) as CleaningTaskResult[]).map(result => [result.task_id, result]));
   const cleaningTasksRaw = (cleaningTasks as unknown as CleaningTask[]) ?? [];
   const cleaningTasksForClient = isAdmin
-    ? cleaningTasksRaw
+    ? cleaningTasksRaw.map(task => ({ ...task, result: resultsByTask.get(task.id) ?? null }))
     : cleaningTasksRaw.map((task) => ({
         ...task,
-        started_at: null,
-        completed_at: null,
         assignee: task.assignee
           ? { ...task.assignee, hourly_rate: null }
           : null,
@@ -72,6 +88,7 @@ export default async function EquipasPage() {
       staff={staffForClient}
       rooms={(rooms as { id: string; name: string }[]) ?? []}
       cleaningTasks={cleaningTasksForClient}
+      cleaningProgress={cleaningProgress}
       maintenanceIssues={maintenanceIssuesForClient}
       currentUserId={currentUserId}
       permissions={permissions}

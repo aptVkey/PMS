@@ -10,12 +10,12 @@ export function BreakdownList({
   const max = Math.max(1, ...items.map((item) => item.value));
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-4 shadow-card">
+    <div className="flex flex-col gap-5 rounded-lg border border-border bg-canvas p-5 shadow-card">
       <p className="text-body font-semibold text-ink">{title}</p>
       {items.length === 0 ? (
         <p className="text-body text-ink-subdued">Sem dados neste período.</p>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-4">
           {items.map((item) => (
             <div key={item.label} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12px] text-ink-muted">
@@ -24,7 +24,7 @@ export function BreakdownList({
                   {formatValue ? formatValue(item.value) : item.value}
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-pill bg-surface-1">
+              <div className="h-1.5 w-full overflow-hidden rounded-pill bg-surface-1">
                 <div
                   className={`h-full rounded-pill ${item.colorClass}`}
                   style={{ width: `${(item.value / max) * 100}%` }}

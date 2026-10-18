@@ -51,8 +51,8 @@ export function StaffFormModal({
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {member ? "Editar membro" : "Adicionar membro"}
           </h2>
@@ -68,10 +68,11 @@ export function StaffFormModal({
 
         <form
           action={formAction}
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
         >
           {member && <input type="hidden" name="id" value={member.id} />}
 
+          <h3 className="ui-form-section-title">Dados da conta</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className={labelClasses}>
               Nome
@@ -150,6 +151,7 @@ export function StaffFormModal({
             </div>
           )}
 
+          <h3 className="ui-form-section-title">Função e custo</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="roleLabel" className={labelClasses}>
@@ -229,7 +231,7 @@ export function StaffFormModal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}

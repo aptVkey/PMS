@@ -4,13 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionPermissions, requirePermission } from "@/lib/permissions";
-import { CLEANING_STATUSES } from "@/lib/cleaning";
+import type { CleaningActionResult } from "@/lib/cleaning";
 
 const CleaningTaskSchema = z.object({
   roomId: z.string().min(1, { error: "Escolhe um quarto." }),
   taskDate: z.string().min(1, { error: "Indica a data." }),
   notes: z.string().optional(),
-  assignedTo: z.string().optional(),
 });
 
 export type CleaningTaskFormState =
@@ -20,14 +19,13 @@ export async function createCleaningTask(
   _prevState: CleaningTaskFormState,
   formData: FormData,
 ): Promise<CleaningTaskFormState> {
-  const denied = await requirePermission("equipas", "limpeza");
+  const denied = await requirePermission("equipas", "gerir_limpeza");
   if (denied) return denied;
 
   const parsed = CleaningTaskSchema.safeParse({
     roomId: formData.get("roomId"),
     taskDate: formData.get("taskDate"),
     notes: formData.get("notes") || undefined,
-    assignedTo: formData.get("assignedTo") || undefined,
   });
 
   if (!parsed.success) {
@@ -44,7 +42,7 @@ export async function createCleaningTask(
     source: "manual",
     status: "pendente",
     notes: parsed.data.notes || null,
-    assigned_to: parsed.data.assignedTo || null,
+    assigned_to: null,
   });
 
   if (error) {
@@ -66,7 +64,7 @@ export async function updateCleaningTaskDetails(
   _prevState: CleaningTaskFormState,
   formData: FormData,
 ): Promise<CleaningTaskFormState> {
-  const denied = await requirePermission("equipas", "limpeza");
+  const denied = await requirePermission("equipas", "gerir_limpeza");
   if (denied) return denied;
 
   const parsed = EditCleaningTaskSchema.safeParse({
@@ -87,14 +85,16 @@ export async function updateCleaningTaskDetails(
   if (parsed.data.taskDate) payload.task_date = parsed.data.taskDate;
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updatedTask, error } = await supabase
     .from("cleaning_tasks")
     .update(payload)
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("status", "pendente")
+    .select("id").maybeSingle();
 
-  if (error) {
+  if (error || !updatedTask) {
     return {
-      error: "Não foi possível guardar as alterações. Tenta novamente.",
+      error: "Só é possível editar tarefas por iniciar. Atualiza a página e tenta novamente.",
     };
   }
 
@@ -102,83 +102,47 @@ export async function updateCleaningTaskDetails(
   return { success: true };
 }
 
-export async function setCleaningTaskStatus(
-  taskId: string,
-  status: string,
-): Promise<{ error: string } | { success: true }> {
-  if (!(CLEANING_STATUSES as readonly string[]).includes(status)) {
-    return { error: "Estado inválido." };
-  }
-
-  const { userId, permissions } = await getSessionPermissions();
-
-  if (!userId) {
-    return { error: "Sessão inválida. Inicia sessão novamente." };
-  }
-
+// The RPC locks the task and commits timestamps, checklist and cost together.
+async function runCleaningAction(
+  name: string,
+  parameters: Record<string, string | boolean | null>,
+): Promise<CleaningActionResult> {
+  const { userId } = await getSessionPermissions();
+  if (!userId) return { error: "Sessão inválida. Inicia sessão novamente." };
   const supabase = await createClient();
-  const { data: task } = await supabase
-    .from("cleaning_tasks")
-    .select("assigned_to")
-    .eq("id", taskId)
-    .maybeSingle();
-
-  const isAuthorized =
-    permissions.includes("equipas") ||
-    permissions.includes("limpeza") ||
-    task?.assigned_to === userId;
-
-  if (!isAuthorized) {
-    return {
-      error:
-        "Só o Administrador, a pessoa responsável pela Limpeza ou quem está atribuído a esta tarefa pode alterar o estado.",
-    };
-  }
-
-  const { error } = await supabase
-    .from("cleaning_tasks")
-    .update({ status })
-    .eq("id", taskId);
-
+  const { data, error } = await supabase.rpc(name, parameters);
   if (error) {
-    return { error: "Não foi possível atualizar o estado. Tenta novamente." };
+    if (error.code === "PGRST202") {
+      return { error: "O fluxo de limpeza ainda precisa de ser ativado na base de dados. Contacta o administrador." };
+    }
+    return { error: ["42501", "22023"].includes(error.code)
+      ? error.message : "Não foi possível guardar. Verifica a ligação e tenta novamente." };
   }
-
+  if (!data?.task) return { error: "O servidor não confirmou a alteração. Atualiza a tarefa." };
   revalidatePath("/equipas");
-  return { success: true };
+  revalidatePath("/relatorios");
+  revalidatePath("/");
+  return { success: true, ...data } as CleaningActionResult;
 }
 
-export async function setCleaningTaskAssignee(
-  taskId: string,
-  staffId: string | null,
-): Promise<{ error: string } | { success: true }> {
-  const { permissions } = await getSessionPermissions();
+export async function startCleaningTask(taskId: string): Promise<CleaningActionResult> {
+  if (!z.uuid().safeParse(taskId).success) return { error: "Tarefa inválida." };
+  return runCleaningAction("start_cleaning_task", { p_task_id: taskId });
+}
 
-  if (!permissions.includes("equipas") && !permissions.includes("limpeza")) {
-    return {
-      error:
-        "Só o Administrador ou a pessoa responsável pela Limpeza pode atribuir tarefas.",
-    };
+export async function setCleaningTaskAssignee(taskId: string, staffId: string | null): Promise<CleaningActionResult> {
+  const denied = await requirePermission("equipas", "gerir_limpeza");
+  if (denied) return denied;
+  if (!z.uuid().safeParse(taskId).success || (staffId !== null && !z.uuid().safeParse(staffId).success)) {
+    return { error: "Tarefa ou responsável inválido." };
   }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("cleaning_tasks")
-    .update({ assigned_to: staffId })
-    .eq("id", taskId);
-
-  if (error) {
-    return { error: "Não foi possível atribuir a tarefa. Tenta novamente." };
-  }
-
-  revalidatePath("/equipas");
-  return { success: true };
+  return runCleaningAction("assign_cleaning_task", { p_task_id: taskId, p_assignee: staffId });
 }
 
 export async function deleteCleaningTask(
   taskId: string,
 ): Promise<{ error: string } | { success: true }> {
-  const denied = await requirePermission("equipas", "limpeza");
+  const denied = await requirePermission("equipas", "gerir_limpeza");
   if (denied) return denied;
 
   const supabase = await createClient();
@@ -188,7 +152,7 @@ export async function deleteCleaningTask(
   // por source = 'manual' e devolvia sucesso sem apagar nada.
   const { data: task } = await supabase
     .from("cleaning_tasks")
-    .select("source")
+    .select("source, status")
     .eq("id", taskId)
     .maybeSingle();
 
@@ -196,22 +160,34 @@ export async function deleteCleaningTask(
     return { error: "Tarefa não encontrada." };
   }
 
-  if (task.source !== "manual") {
+  if (task.source !== "manual" || task.status !== "pendente") {
     return {
       error:
-        "Esta tarefa foi criada automaticamente pelo checkout da reserva e não pode ser removida à mão.",
+        "Só é possível remover tarefas manuais que ainda não começaram.",
     };
   }
 
-  const { error } = await supabase
+  const { data: deletedTask, error } = await supabase
     .from("cleaning_tasks")
     .delete()
-    .eq("id", taskId);
+    .eq("id", taskId).eq("status", "pendente")
+    .select("id").maybeSingle();
 
-  if (error) {
+  if (error || !deletedTask) {
     return { error: "Não foi possível remover a tarefa. Tenta novamente." };
   }
 
   revalidatePath("/equipas");
   return { success: true };
+}
+
+export async function setCleaningItemChecked(
+  taskId: string,
+  itemId: string,
+  checked: boolean,
+): Promise<CleaningActionResult> {
+  if (!z.uuid().safeParse(taskId).success || !z.uuid().safeParse(itemId).success || typeof checked !== "boolean") {
+    return { error: "Item inválido." };
+  }
+  return runCleaningAction("check_cleaning_item", { p_task_id: taskId, p_item_id: itemId, p_checked: checked });
 }

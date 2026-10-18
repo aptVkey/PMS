@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react";
-import type { CleaningTask } from "@/lib/cleaning";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { ChevronLeft, ChevronRight, Plus, Sparkles, CircleCheck, Clock3, ClipboardList, Info } from "lucide-react";
+import type { CleaningProgress, CleaningTask } from "@/lib/cleaning";
 import type { StaffMember, PermissionKey } from "@/lib/staff";
 import { addDaysISO, formatFullDateLabel, todayISO } from "@/lib/date-utils";
 import { CleaningTaskRow } from "./cleaning-task-row";
@@ -10,22 +12,67 @@ import { CleaningTaskFormModal } from "./cleaning-task-form-modal";
 
 export function LimpezaSection({
   tasks,
+  progress,
   rooms,
   staff,
   currentUserId,
   permissions,
 }: {
   tasks: CleaningTask[];
+  progress: Record<string, CleaningProgress>;
   rooms: { id: string; name: string }[];
   staff: StaffMember[];
   currentUserId: string;
   permissions: PermissionKey[];
 }) {
   const isAdmin = permissions.includes("equipas");
-  const canManageAnyTask = isAdmin || permissions.includes("limpeza");
+  const canManageAnyTask = isAdmin || permissions.includes("gerir_limpeza");
   const today = todayISO();
   const [date, setDate] = useState(today);
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
+
+  const staffNames = useMemo(
+    () => Object.fromEntries(staff.map((member) => [member.id, member.name])),
+    [staff],
+  );
+
+  // Tempo real: quando a equipa faz tick ou muda o estado de uma tarefa,
+  // a lista (progresso e estados) atualiza-se sozinha.
+  useEffect(() => {
+    const supabase = createClient();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => router.refresh(), 400);
+    };
+
+    const channel = supabase
+      .channel("cleaning-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_task_items" },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_tasks" },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    const refreshVisible = () => { if (document.visibilityState === "visible") scheduleRefresh(); };
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    const fallback = setInterval(refreshVisible, 15000);
+    return () => {
+      clearInterval(fallback);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
 
   const dayTasks = useMemo(
     () =>
@@ -36,38 +83,40 @@ export function LimpezaSection({
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border bg-canvas p-1">
           <button
             type="button"
             onClick={() => setDate((d) => addDaysISO(d, -1))}
             aria-label="Dia anterior"
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-ink hover:bg-surface-1"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-1"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={2} />
           </button>
-          <p className="min-w-[220px] text-center text-body font-semibold text-ink">
+          <p className="min-w-0 px-2 text-center text-[12px] font-medium text-ink sm:min-w-[190px] sm:text-body">
             {formatFullDateLabel(date)}
           </p>
           <button
             type="button"
             onClick={() => setDate((d) => addDaysISO(d, 1))}
             aria-label="Dia seguinte"
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-ink hover:bg-surface-1"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-1"
           >
             <ChevronRight className="h-4 w-4" strokeWidth={2} />
           </button>
+          </div>
           <button
             type="button"
             onClick={() => setDate(today)}
-            className="min-h-9 rounded-md border border-border px-3 text-body font-semibold text-ink hover:bg-surface-1"
+            className="min-h-11 rounded-md border border-border bg-canvas px-3 text-[12px] font-medium text-ink hover:bg-surface-1"
           >
             Hoje
           </button>
         </div>
 
-        <button
+        {canManageAnyTask && <button
           type="button"
           onClick={() => setModalOpen(true)}
           disabled={rooms.length === 0}
@@ -75,7 +124,20 @@ export function LimpezaSection({
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           Adicionar tarefa
-        </button>
+        </button>}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 sm:gap-4" aria-label="Resumo das limpezas do dia">
+        {[
+          { status: "pendente", label: "Por limpar", icon: ClipboardList, color: "bg-highlight/15 text-highlight-ink", dot: "bg-highlight" },
+          { status: "em_curso", label: "Em limpeza", icon: Clock3, color: "bg-surface-2 text-primary", dot: "bg-action" },
+          { status: "concluida", label: "Limpo", icon: CircleCheck, color: "bg-success/10 text-success", dot: "bg-success" },
+        ].map(({ status, label, icon: Icon, color, dot }) => (
+          <div key={status} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-canvas p-3 shadow-card sm:p-5">
+            <div><p className="flex items-center gap-1.5 text-[11px] text-ink-muted sm:text-[12px]"><span className={`h-1.5 w-1.5 shrink-0 rounded-pill ${dot}`} />{label}</p><p className="ui-stat mt-3 text-[26px] font-semibold leading-none text-ink">{dayTasks.filter(task => task.status === status).length}</p></div>
+            <span className={`hidden h-10 w-10 items-center justify-center rounded-lg sm:flex ${color}`}><Icon className="h-4 w-4" strokeWidth={1.7} /></span>
+          </div>
+        ))}
       </div>
 
       {dayTasks.length === 0 ? (
@@ -91,23 +153,30 @@ export function LimpezaSection({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-canvas shadow-card">
-          <table className="w-full text-left">
-            <thead>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-5">
+            <div><h2 className="text-body font-semibold text-ink">Plano de limpezas</h2><p className="mt-1 text-[12px] text-ink-subdued">Atribui, acompanha e conclui as tarefas do dia.</p></div>
+            <span className="shrink-0 rounded-md bg-surface-1 px-2.5 py-1 text-[11px] font-medium text-ink-muted">{dayTasks.length} {dayTasks.length === 1 ? "tarefa" : "tarefas"}</span>
+          </div>
+          <table className="block w-full text-left lg:table">
+            <thead className="hidden lg:table-header-group">
               <tr className="border-b border-border bg-surface-1 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued">
                 <th className="px-4 py-3">Quarto</th>
                 <th className="px-4 py-3">Origem</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Checklist</th>
                 <th className="px-4 py-3">Atribuído a</th>
                 <th className="px-4 py-3">Notas</th>
-                {isAdmin && <th className="px-4 py-3">Tempo / Custo</th>}
+                <th className="px-4 py-3">{isAdmin ? "Tempo / Custo" : "Tempo"}</th>
                 <th className="px-4 py-3">Ações</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block lg:table-row-group">
               {dayTasks.map((task) => (
                 <CleaningTaskRow
                   key={task.id}
                   task={task}
+                  progress={progress[task.id] ?? null}
+                  staffNames={staffNames}
                   rooms={rooms}
                   staff={staff}
                   canEditStatus={
@@ -121,6 +190,8 @@ export function LimpezaSection({
           </table>
         </div>
       )}
+
+      <p className="flex items-start gap-2 text-[12px] leading-relaxed text-ink-subdued"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />Os checkouts criam tarefas automaticamente. Ao concluir o último item da checklist, o relógio para e o alojamento fica limpo.</p>
 
       {modalOpen && (
         <CleaningTaskFormModal

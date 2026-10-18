@@ -45,7 +45,7 @@ export const navSections: NavSection[] = [
         label: "Equipas e tarefas",
         href: "/equipas",
         icon: ClipboardList,
-        permissionKeys: ["equipas", "limpeza", "manutencao"],
+        permissionKeys: ["equipas", "limpeza", "gerir_limpeza", "manutencao"],
       },
     ],
   },

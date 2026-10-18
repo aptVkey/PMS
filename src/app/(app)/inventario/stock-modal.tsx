@@ -72,8 +72,8 @@ export function StockModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-[18px] font-bold text-ink">Movimentar stock</h2>
             <p className="text-body text-ink-muted">{item.name}</p>
@@ -88,7 +88,7 @@ export function StockModal({
           </button>
         </div>
 
-        <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
+        <div className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5">
           <div className="grid grid-cols-3 gap-3">
             <StatBox label="Atual" value={`${item.quantity} ${item.unit}`} />
             <StatBox
@@ -138,7 +138,7 @@ export function StockModal({
               </p>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
                 name="type"

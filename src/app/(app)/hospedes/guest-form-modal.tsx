@@ -35,8 +35,8 @@ export function GuestFormModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-canvas shadow-popover ui-form-modal">
+        <div className="ui-form-header flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-[18px] font-bold text-ink">
             {guest ? "Editar hóspede" : "Adicionar hóspede"}
           </h2>
@@ -52,10 +52,11 @@ export function GuestFormModal({
 
         <form
           action={formAction}
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
         >
           {guest && <input type="hidden" name="id" value={guest.id} />}
 
+          <h3 className="ui-form-section-title">Dados pessoais</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className={labelClasses}>
               Nome
@@ -128,6 +129,7 @@ export function GuestFormModal({
             </div>
           </div>
 
+          <h3 className="ui-form-section-title">Identificação</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="documentType" className={labelClasses}>
@@ -162,6 +164,7 @@ export function GuestFormModal({
             </div>
           </div>
 
+          <h3 className="ui-form-section-title">Notas</h3>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="notes" className={labelClasses}>
               Notas
@@ -279,7 +282,7 @@ export function GuestFormModal({
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <div className="ui-form-footer flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}
