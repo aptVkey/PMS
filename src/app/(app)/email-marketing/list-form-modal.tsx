@@ -87,21 +87,32 @@ export function ListFormModal({
 
           <div className="flex flex-col gap-1.5">
             <span className={labelClasses}>Tipo de lista</span>
-            <div className="flex gap-3">
-              {LIST_KINDS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setKind(value)}
-                  className={`flex min-h-11 flex-1 items-center justify-center rounded-md border text-body font-semibold transition-colors duration-fast ease-standard ${
-                    kind === value
-                      ? "border-action bg-action/10 text-action"
-                      : "border-border text-ink-muted hover:bg-surface-1"
-                  }`}
-                >
-                  {LIST_KIND_LABELS[value]}
-                </button>
-              ))}
+            {list?.kind === "segment" && (
+              <p className="rounded-md bg-surface-1 p-3 text-[13px] text-ink-muted">
+                Lista ligada a um segmento do CRM: os membros atualizam-se
+                sozinhos a cada reserva. Para mudar os critérios, edita o
+                segmento no CRM.
+              </p>
+            )}
+            <div
+              className={`flex gap-3 ${list?.kind === "segment" ? "hidden" : ""}`}
+            >
+              {LIST_KINDS.filter((value) => value !== "segment").map(
+                (value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setKind(value)}
+                    className={`flex min-h-11 flex-1 items-center justify-center rounded-md border text-body font-semibold transition-colors duration-fast ease-standard ${
+                      kind === value
+                        ? "border-action bg-action/10 text-action"
+                        : "border-border text-ink-muted hover:bg-surface-1"
+                    }`}
+                  >
+                    {LIST_KIND_LABELS[value]}
+                  </button>
+                ),
+              )}
             </div>
             <input type="hidden" name="kind" value={kind} />
             <p className="text-[12px] text-ink-subdued">

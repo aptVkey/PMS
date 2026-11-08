@@ -1,167 +1,270 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Search, Users } from "lucide-react";
-import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, type Guest } from "@/lib/guests";
-import type { Booking } from "@/lib/bookings";
-import { GuestRow } from "./guest-row";
-import { GuestFormModal } from "./guest-form-modal";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { CheckSquare, Filter, Inbox, Users } from "lucide-react";
+import type { Guest } from "@/lib/guests";
+import {
+  EMPTY_STATS,
+  computeGuestStats,
+  metricAverages,
+  ruleMatches,
+  type CrmLead,
+  type CrmSegment,
+  type CrmTag,
+  type CrmTagRule,
+  type CrmTask,
+  type GuestStats,
+} from "@/lib/crm";
+import { todayISO } from "@/lib/date-utils";
+import type { GuestBooking } from "./page";
+import { GuestsTab } from "./guests-tab";
+import { GuestProfileDrawer } from "./guest-profile-drawer";
+import { SegmentsTab } from "./segments-tab";
+import { TasksTab } from "./tasks-tab";
+import { LeadsTab } from "./leads-tab";
 
-const selectClasses =
-  "min-h-11 rounded-md border border-border bg-canvas px-3 text-body text-ink focus:border-action focus:outline-none focus:ring-2 focus:ring-action focus:ring-offset-2";
+type Tab = "hospedes" | "segmentos" | "tarefas" | "leads";
+
+export type StaffOption = { id: string; name: string };
 
 export function HospedesClient({
+  currentUserId,
   guests,
   bookings,
+  tags,
+  guestTags,
+  tasks,
+  leads,
+  segments,
+  tagRules,
+  segmentsWithList,
+  staff,
 }: {
+  currentUserId: string;
   guests: Guest[];
-  bookings: Booking[];
+  bookings: GuestBooking[];
+  tags: CrmTag[];
+  guestTags: { guest_id: string; tag_id: string }[];
+  tasks: CrmTask[];
+  leads: CrmLead[];
+  segments: CrmSegment[];
+  tagRules: CrmTagRule[];
+  // Segmentos que já têm uma lista de email ligada.
+  segmentsWithList: string[];
+  staff: StaffOption[];
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [nationalityFilter, setNationalityFilter] = useState("");
-  const [documentTypeFilter, setDocumentTypeFilter] = useState("");
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("hospedes");
+  const [openGuestId, setOpenGuestId] = useState<string | null>(null);
+  const today = todayISO();
 
-  const nationalities = useMemo(() => {
-    const values = new Set(
-      guests.map((g) => g.nationality).filter((n): n is string => !!n),
-    );
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [guests]);
+  // Tempo real: quando entra, muda ou sai uma reserva, a média e as etiquetas
+  // por regra mudam — por isso a página recarrega os dados sozinha.
+  useEffect(() => {
+    const supabase = createClient();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const channel = supabase
+      .channel("crm-bookings-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => router.refresh(), 800);
+        },
+      )
+      .subscribe();
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
 
-  const filteredGuests = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return guests.filter((guest) => {
-      const matchesQuery =
-        normalizedQuery === "" ||
-        guest.name.toLowerCase().includes(normalizedQuery) ||
-        guest.email?.toLowerCase().includes(normalizedQuery) ||
-        guest.phone?.toLowerCase().includes(normalizedQuery);
+  const statsByGuest = useMemo(() => {
+    const grouped = new Map<string, GuestBooking[]>();
+    for (const booking of bookings) {
+      grouped.set(booking.guest_id, [
+        ...(grouped.get(booking.guest_id) ?? []),
+        booking,
+      ]);
+    }
+    const result = new Map<string, GuestStats>();
+    for (const [guestId, list] of grouped) {
+      result.set(guestId, computeGuestStats(list, today));
+    }
+    return result;
+  }, [bookings, today]);
 
-      const matchesNationality =
-        nationalityFilter === "" || guest.nationality === nationalityFilter;
+  // Etiquetas manuais atribuídas a cada hóspede.
+  const manualTagIdsByGuest = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const row of guestTags) {
+      map.set(row.guest_id, [...(map.get(row.guest_id) ?? []), row.tag_id]);
+    }
+    return map;
+  }, [guestTags]);
 
-      const matchesDocumentType =
-        documentTypeFilter === "" || guest.document_type === documentTypeFilter;
+  // Médias de cada métrica entre todos os hóspedes (para as regras "acima /
+  // abaixo da média").
+  const averages = useMemo(
+    () => metricAverages(Array.from(statsByGuest.values()), today),
+    [statsByGuest, today],
+  );
 
-      return matchesQuery && matchesNationality && matchesDocumentType;
-    });
-  }, [guests, query, nationalityFilter, documentTypeFilter]);
+  // Regras automáticas: as etiquetas são calculadas aqui, sempre com os dados
+  // atuais — nunca ficam desatualizadas.
+  const ruleTags = useMemo<CrmTag[]>(
+    () =>
+      tagRules.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        auto: true,
+      })),
+    [tagRules],
+  );
+  const ruleIdsByGuest = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const guest of guests) {
+      const stats = statsByGuest.get(guest.id) ?? EMPTY_STATS;
+      const matched = tagRules
+        .filter((rule) => ruleMatches(rule, stats, averages, today))
+        .map((rule) => rule.id);
+      if (matched.length > 0) map.set(guest.id, matched);
+    }
+    return map;
+  }, [guests, statsByGuest, tagRules, averages, today]);
 
-  const hasFilters =
-    query !== "" || nationalityFilter !== "" || documentTypeFilter !== "";
+  // Manuais + automáticas, para filtros, segmentos e listas.
+  const allTags = useMemo(() => [...tags, ...ruleTags], [tags, ruleTags]);
+  const tagIdsByGuest = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const guest of guests) {
+      const ids = [
+        ...(manualTagIdsByGuest.get(guest.id) ?? []),
+        ...(ruleIdsByGuest.get(guest.id) ?? []),
+      ];
+      if (ids.length > 0) map.set(guest.id, ids);
+    }
+    return map;
+  }, [guests, manualTagIdsByGuest, ruleIdsByGuest]);
+
+  const overdueTasks = tasks.filter(
+    (t) => !t.done && t.due_date && t.due_date <= today,
+  ).length;
+  const newLeads = leads.filter((l) => l.status === "novo").length;
+
+  const openGuest = openGuestId
+    ? (guests.find((g) => g.id === openGuestId) ?? null)
+    : null;
+
+  const TABS: {
+    key: Tab;
+    label: string;
+    icon: typeof Users;
+    badge?: number;
+  }[] = [
+    { key: "hospedes", label: "Hóspedes", icon: Users },
+    { key: "segmentos", label: "Segmentos", icon: Filter },
+    {
+      key: "tarefas",
+      label: "Tarefas",
+      icon: CheckSquare,
+      badge: overdueTasks,
+    },
+    { key: "leads", label: "Leads", icon: Inbox, badge: newLeads },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[24px] font-bold text-ink">Hóspedes / CRM</h1>
-          <p className="mt-1 text-body text-ink-muted">
-            Consulta o histórico e os dados dos teus hóspedes.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="flex min-h-11 items-center gap-2 rounded-md bg-action px-4 text-body font-semibold text-on-primary transition-colors duration-fast ease-standard hover:bg-action-hover"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Adicionar hóspede
-        </button>
+      <div>
+        <h1 className="text-[24px] font-bold text-ink">Hóspedes / CRM</h1>
+        <p className="mt-1 text-body text-ink-muted">
+          Conhece os teus hóspedes, segmenta, acompanha contactos e pedidos.
+        </p>
       </div>
 
-      {guests.length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subdued"
-              strokeWidth={2}
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Pesquisar por nome, email ou telefone..."
-              className={`${selectClasses} w-full pl-9`}
-            />
-          </div>
-          <select
-            value={nationalityFilter}
-            onChange={(e) => setNationalityFilter(e.target.value)}
-            className={selectClasses}
+      <div className="flex flex-wrap rounded-md border border-border bg-canvas p-0.5 sm:w-fit">
+        {TABS.map(({ key, label, icon: Icon, badge }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-body font-semibold transition-colors duration-fast ease-standard sm:flex-none ${
+              tab === key
+                ? "bg-surface-2 text-primary"
+                : "text-ink-muted hover:bg-surface-1"
+            }`}
           >
-            <option value="">Todas as nacionalidades</option>
-            {nationalities.map((nationality) => (
-              <option key={nationality} value={nationality}>
-                {nationality}
-              </option>
-            ))}
-          </select>
-          <select
-            value={documentTypeFilter}
-            onChange={(e) => setDocumentTypeFilter(e.target.value)}
-            className={selectClasses}
-          >
-            <option value="">Todos os documentos</option>
-            {DOCUMENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {DOCUMENT_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </div>
+            <Icon className="h-4 w-4" strokeWidth={2} />
+            {label}
+            {badge ? (
+              <span className="rounded-pill bg-error px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                {badge}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === "hospedes" && (
+        <GuestsTab
+          guests={guests}
+          bookings={bookings}
+          statsByGuest={statsByGuest}
+          tags={allTags}
+          tagIdsByGuest={tagIdsByGuest}
+          onOpen={setOpenGuestId}
+        />
+      )}
+      {tab === "segmentos" && (
+        <SegmentsTab
+          guests={guests}
+          statsByGuest={statsByGuest}
+          tags={allTags}
+          manualTags={tags}
+          tagRules={tagRules}
+          averages={averages}
+          tagIdsByGuest={tagIdsByGuest}
+          segments={segments}
+          segmentsWithList={segmentsWithList}
+          today={today}
+          onOpenGuest={setOpenGuestId}
+        />
+      )}
+      {tab === "tarefas" && (
+        <TasksTab
+          tasks={tasks}
+          guests={guests}
+          staff={staff}
+          currentUserId={currentUserId}
+          today={today}
+          onOpenGuest={setOpenGuestId}
+        />
+      )}
+      {tab === "leads" && (
+        <LeadsTab leads={leads} staff={staff} onOpenGuest={setOpenGuestId} />
       )}
 
-      {guests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-canvas py-16 text-center">
-          <Users className="h-8 w-8 text-ink-subdued" strokeWidth={1.5} />
-          <p className="text-body font-semibold text-ink">
-            Ainda não tens hóspedes
-          </p>
-          <p className="max-w-sm text-body text-ink-subdued">
-            Adiciona o primeiro hóspede para começares a construir o teu CRM.
-          </p>
-        </div>
-      ) : filteredGuests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-canvas py-16 text-center">
-          <Search className="h-8 w-8 text-ink-subdued" strokeWidth={1.5} />
-          <p className="text-body font-semibold text-ink">
-            Nenhum hóspede encontrado
-          </p>
-          <p className="max-w-sm text-body text-ink-subdued">
-            {hasFilters
-              ? "Tenta ajustar a pesquisa ou os filtros."
-              : "Adiciona hóspedes para os veres aqui."}
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-canvas shadow-card">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border bg-surface-1 text-[12px] font-semibold uppercase tracking-wide text-ink-subdued">
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Contacto</th>
-                <th className="px-4 py-3">Documento</th>
-                <th className="px-4 py-3 text-center">Visitas</th>
-                <th className="px-4 py-3">Última estadia</th>
-                <th className="px-4 py-3">Total gasto</th>
-                <th className="px-4 py-3">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredGuests.map((guest) => (
-                <GuestRow
-                  key={guest.id}
-                  guest={guest}
-                  bookings={bookings.filter((b) => b.guest_id === guest.id)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {openGuest && (
+        <GuestProfileDrawer
+          key={openGuest.id}
+          guest={openGuest}
+          bookings={bookings.filter((b) => b.guest_id === openGuest.id)}
+          stats={statsByGuest.get(openGuest.id) ?? EMPTY_STATS}
+          tags={tags}
+          guestTagIds={manualTagIdsByGuest.get(openGuest.id) ?? []}
+          autoTags={ruleTags.filter((t) =>
+            (ruleIdsByGuest.get(openGuest.id) ?? []).includes(t.id),
+          )}
+          tasks={tasks.filter((t) => t.guest_id === openGuest.id)}
+          staff={staff}
+          today={today}
+          onClose={() => setOpenGuestId(null)}
+        />
       )}
-
-      {modalOpen && <GuestFormModal onClose={() => setModalOpen(false)} />}
     </div>
   );
 }

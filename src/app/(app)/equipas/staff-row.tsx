@@ -29,18 +29,28 @@ export function StaffRow({
       <tr className="border-b border-border last:border-0">
         <td className="whitespace-nowrap px-4 py-3">
           <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[12px] font-semibold text-primary">{member.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("")}</span>
-          <div>
-          <p className="text-body font-semibold text-ink">
-            {member.name}
-            {isCurrentUser && (
-              <span className="ml-2 text-[12px] font-normal text-ink-subdued">
-                (tu)
-              </span>
-            )}
-          </p>
-          <p className="text-[12px] text-ink-subdued">{member.email}</p>
-          </div>
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[12px] font-semibold text-primary"
+            >
+              {member.name
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join("")}
+            </span>
+            <div>
+              <p className="text-body font-semibold text-ink">
+                {member.name}
+                {isCurrentUser && (
+                  <span className="ml-2 text-[12px] font-normal text-ink-subdued">
+                    (tu)
+                  </span>
+                )}
+              </p>
+              <p className="text-[12px] text-ink-subdued">{member.email}</p>
+            </div>
           </div>
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">

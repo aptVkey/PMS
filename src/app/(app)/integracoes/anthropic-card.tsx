@@ -31,9 +31,7 @@ export function AnthropicCard({ keyHint }: { keyHint: string | null }) {
             <Sparkles className="h-5 w-5" strokeWidth={2} />
           </div>
           <div>
-            <p className="text-body font-bold text-ink">
-              IA para deteção de faturas
-            </p>
+            <p className="text-body font-bold text-ink">Anthropic (Claude)</p>
             <p className="text-[12px] text-ink-subdued">
               Lê o valor, categoria e data ao anexares uma fatura no Fluxo de
               caixa.

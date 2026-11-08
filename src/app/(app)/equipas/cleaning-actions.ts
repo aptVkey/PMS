@@ -90,11 +90,13 @@ export async function updateCleaningTaskDetails(
     .update(payload)
     .eq("id", parsed.data.id)
     .eq("status", "pendente")
-    .select("id").maybeSingle();
+    .select("id")
+    .maybeSingle();
 
   if (error || !updatedTask) {
     return {
-      error: "Só é possível editar tarefas por iniciar. Atualiza a página e tenta novamente.",
+      error:
+        "Só é possível editar tarefas por iniciar. Atualiza a página e tenta novamente.",
     };
   }
 
@@ -113,30 +115,50 @@ async function runCleaningAction(
   const { data, error } = await supabase.rpc(name, parameters);
   if (error) {
     if (error.code === "PGRST202") {
-      return { error: "O fluxo de limpeza ainda precisa de ser ativado na base de dados. Contacta o administrador." };
+      return {
+        error:
+          "O fluxo de limpeza ainda precisa de ser ativado na base de dados. Contacta o administrador.",
+      };
     }
-    return { error: ["42501", "22023"].includes(error.code)
-      ? error.message : "Não foi possível guardar. Verifica a ligação e tenta novamente." };
+    return {
+      error: ["42501", "22023"].includes(error.code)
+        ? error.message
+        : "Não foi possível guardar. Verifica a ligação e tenta novamente.",
+    };
   }
-  if (!data?.task) return { error: "O servidor não confirmou a alteração. Atualiza a tarefa." };
+  if (!data?.task)
+    return {
+      error: "O servidor não confirmou a alteração. Atualiza a tarefa.",
+    };
   revalidatePath("/equipas");
   revalidatePath("/relatorios");
   revalidatePath("/");
   return { success: true, ...data } as CleaningActionResult;
 }
 
-export async function startCleaningTask(taskId: string): Promise<CleaningActionResult> {
+export async function startCleaningTask(
+  taskId: string,
+): Promise<CleaningActionResult> {
   if (!z.uuid().safeParse(taskId).success) return { error: "Tarefa inválida." };
   return runCleaningAction("start_cleaning_task", { p_task_id: taskId });
 }
 
-export async function setCleaningTaskAssignee(taskId: string, staffId: string | null): Promise<CleaningActionResult> {
+export async function setCleaningTaskAssignee(
+  taskId: string,
+  staffId: string | null,
+): Promise<CleaningActionResult> {
   const denied = await requirePermission("equipas", "gerir_limpeza");
   if (denied) return denied;
-  if (!z.uuid().safeParse(taskId).success || (staffId !== null && !z.uuid().safeParse(staffId).success)) {
+  if (
+    !z.uuid().safeParse(taskId).success ||
+    (staffId !== null && !z.uuid().safeParse(staffId).success)
+  ) {
     return { error: "Tarefa ou responsável inválido." };
   }
-  return runCleaningAction("assign_cleaning_task", { p_task_id: taskId, p_assignee: staffId });
+  return runCleaningAction("assign_cleaning_task", {
+    p_task_id: taskId,
+    p_assignee: staffId,
+  });
 }
 
 export async function deleteCleaningTask(
@@ -162,16 +184,17 @@ export async function deleteCleaningTask(
 
   if (task.source !== "manual" || task.status !== "pendente") {
     return {
-      error:
-        "Só é possível remover tarefas manuais que ainda não começaram.",
+      error: "Só é possível remover tarefas manuais que ainda não começaram.",
     };
   }
 
   const { data: deletedTask, error } = await supabase
     .from("cleaning_tasks")
     .delete()
-    .eq("id", taskId).eq("status", "pendente")
-    .select("id").maybeSingle();
+    .eq("id", taskId)
+    .eq("status", "pendente")
+    .select("id")
+    .maybeSingle();
 
   if (error || !deletedTask) {
     return { error: "Não foi possível remover a tarefa. Tenta novamente." };
@@ -186,8 +209,16 @@ export async function setCleaningItemChecked(
   itemId: string,
   checked: boolean,
 ): Promise<CleaningActionResult> {
-  if (!z.uuid().safeParse(taskId).success || !z.uuid().safeParse(itemId).success || typeof checked !== "boolean") {
+  if (
+    !z.uuid().safeParse(taskId).success ||
+    !z.uuid().safeParse(itemId).success ||
+    typeof checked !== "boolean"
+  ) {
     return { error: "Item inválido." };
   }
-  return runCleaningAction("check_cleaning_item", { p_task_id: taskId, p_item_id: itemId, p_checked: checked });
+  return runCleaningAction("check_cleaning_item", {
+    p_task_id: taskId,
+    p_item_id: itemId,
+    p_checked: checked,
+  });
 }

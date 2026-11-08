@@ -36,12 +36,13 @@ export const OFFSET_REFERENCE_LABELS: Record<OffsetReference, string> = {
   check_out: "checkout",
 };
 
-export const LIST_KINDS = ["manual", "dynamic"] as const;
+export const LIST_KINDS = ["manual", "dynamic", "segment"] as const;
 export type ListKind = (typeof LIST_KINDS)[number];
 
 export const LIST_KIND_LABELS: Record<ListKind, string> = {
   manual: "Manual",
   dynamic: "Dinâmica (por filtro)",
+  segment: "Segmento do CRM",
 };
 
 export const SEND_STATUSES = ["sent", "failed", "skipped"] as const;
@@ -74,6 +75,8 @@ export type EmailList = {
   description: string | null;
   kind: ListKind;
   filter: ListFilter | null;
+  // Só nas listas do tipo "segment": os membros vêm deste segmento do CRM.
+  segment_id: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -39,6 +39,8 @@ export type ReportingMaintenanceIssue = {
   priority: "baixa" | "media" | "alta";
   started_at: string | null;
   completed_at: string | null;
+  // Custo gravado ao resolver; se faltar, calcula-se com o valor/hora atual.
+  total_cost?: number | null;
   assignee?: { hourly_rate: number | null } | null;
 };
 

@@ -79,11 +79,14 @@ export async function sendContactMessage(
     return { error: "Não foi possível enviar agora. Tenta mais tarde." };
   }
 
-  const { error } = await admin.from("contact_messages").insert({
+  // As mensagens do website entram no CRM como leads «Novo».
+  const { error } = await admin.from("crm_leads").insert({
     name: parsed.data.name,
     email: parsed.data.email,
     phone: parsed.data.phone ?? null,
     message: parsed.data.message,
+    source: "website",
+    status: "novo",
   });
 
   if (error) {

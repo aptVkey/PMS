@@ -48,6 +48,9 @@ export function ListsSection({
     if (list.kind === "manual") {
       return `${memberCountByList.get(list.id) ?? 0} membro(s)`;
     }
+    if (list.kind === "segment") {
+      return "atualiza-se sozinha a cada reserva";
+    }
     const parts: string[] = [];
     if (list.filter?.nationality) parts.push(list.filter.nationality);
     if (list.filter?.min_visit_count) {

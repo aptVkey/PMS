@@ -1,7 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createResendClient } from "@/lib/resend";
-import { formatDateLabel } from "@/lib/date-utils";
+import { formatDateLabel, todayISO } from "@/lib/date-utils";
+import {
+  segmentGuestIds,
+  type CrmTagRule,
+  type SegmentFilter,
+} from "@/lib/crm";
 import {
   renderTemplate,
   resolveEffectiveTrigger,
@@ -50,11 +55,17 @@ async function loadListGuestIds(
 ): Promise<Set<string>> {
   const { data: list } = await admin
     .from("email_lists")
-    .select("kind, filter")
+    .select("kind, filter, segment_id")
     .eq("id", listId)
     .maybeSingle();
 
   if (!list) return new Set();
+
+  // Lista ligada a um segmento do CRM: calcula-se agora, com as reservas
+  // atuais (a média, as regras e o histórico mudam a cada reserva).
+  if (list.kind === "segment") {
+    return loadSegmentGuestIds(admin, list.segment_id as string | null);
+  }
 
   if (list.kind === "manual") {
     const { data: members } = await admin
@@ -91,6 +102,73 @@ async function loadListGuestIds(
   }
 
   return ids;
+}
+
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
+
+// O Supabase devolve no máximo 1000 linhas por pedido.
+async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < 50; page++) {
+    const { data } = await build(page * 1000, page * 1000 + 999);
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+async function loadSegmentGuestIds(
+  admin: Admin,
+  segmentId: string | null,
+): Promise<Set<string>> {
+  if (!segmentId) return new Set();
+
+  const { data: segment } = await admin
+    .from("crm_segments")
+    .select("filter")
+    .eq("id", segmentId)
+    .maybeSingle();
+  if (!segment) return new Set();
+
+  const [guests, bookings, manualTags, { data: rules }] = await Promise.all([
+    fetchAllRows<{
+      id: string;
+      nationality: string | null;
+      email: string | null;
+    }>((a, b) =>
+      admin.from("guests").select("id, nationality, email").range(a, b),
+    ),
+    fetchAllRows<{
+      guest_id: string;
+      check_in: string;
+      check_out: string;
+      status: string;
+      total_amount: number;
+      channel: string | null;
+    }>((a, b) =>
+      admin
+        .from("bookings")
+        .select("guest_id, check_in, check_out, status, total_amount, channel")
+        .range(a, b),
+    ),
+    fetchAllRows<{ guest_id: string; tag_id: string }>((a, b) =>
+      admin.from("crm_guest_tags").select("guest_id, tag_id").range(a, b),
+    ),
+    admin.from("crm_tag_rules").select("*"),
+  ]);
+
+  return new Set(
+    segmentGuestIds({
+      guests,
+      bookings,
+      manualTags,
+      rules: (rules ?? []) as CrmTagRule[],
+      filter: segment.filter as SegmentFilter,
+      today: todayISO(),
+    }),
+  );
 }
 
 async function findCandidates(

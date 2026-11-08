@@ -118,6 +118,29 @@ export async function saveList(
     return { error: parsed.error.issues[0]?.message ?? "Verifica os campos." };
   }
 
+  const supabase = await createClient();
+  const id = formData.get("id");
+
+  // Listas ligadas a um segmento só se criam a partir do CRM; aqui só se
+  // pode mudar o nome e a descrição (a pertença vem sempre do segmento).
+  if (parsed.data.kind === "segment") {
+    if (!id) {
+      return { error: "Cria listas de segmento a partir do CRM (Segmentos)." };
+    }
+    const { error } = await supabase
+      .from("email_lists")
+      .update({
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+      })
+      .eq("id", String(id));
+    if (error) {
+      return { error: "Não foi possível guardar a lista. Tenta novamente." };
+    }
+    revalidatePath("/email-marketing");
+    return { success: true };
+  }
+
   const filter =
     parsed.data.kind === "dynamic"
       ? {
@@ -127,7 +150,6 @@ export async function saveList(
         }
       : null;
 
-  const supabase = await createClient();
   const payload = {
     name: parsed.data.name,
     description: parsed.data.description ?? null,
@@ -135,7 +157,6 @@ export async function saveList(
     filter,
   };
 
-  const id = formData.get("id");
   const { error } = id
     ? await supabase.from("email_lists").update(payload).eq("id", String(id))
     : await supabase.from("email_lists").insert(payload);

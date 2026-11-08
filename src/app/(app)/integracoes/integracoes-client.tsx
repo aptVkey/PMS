@@ -5,6 +5,9 @@ import { CreditCard, MessageSquare, Sparkles } from "lucide-react";
 import { StripeCard } from "./stripe-card";
 import { PaybyrdCard } from "./paybyrd-card";
 import { AnthropicCard } from "./anthropic-card";
+import { GeminiCard } from "./gemini-card";
+import { AiProviderPicker } from "./ai-provider-picker";
+import type { AiProvider } from "@/lib/ai-providers";
 import { ResendCard } from "./resend-card";
 import { WhatsAppCard } from "./whatsapp-card";
 
@@ -22,6 +25,8 @@ type Settings = {
   stripe_account_label: string | null;
   app_url: string | null;
   anthropic_key_hint: string | null;
+  gemini_key_hint: string | null;
+  ai_provider: AiProvider | null;
   resend_key_hint: string | null;
   resend_from_email: string | null;
   resend_from_name: string | null;
@@ -125,8 +130,16 @@ export function IntegracoesClient({
 
         {tab === "ia" &&
           (settings ? (
-            <div className="max-w-2xl">
-              <AnthropicCard keyHint={settings.anthropic_key_hint} />
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+                <AnthropicCard keyHint={settings.anthropic_key_hint} />
+                <GeminiCard keyHint={settings.gemini_key_hint} />
+              </div>
+              <AiProviderPicker
+                anthropicConnected={Boolean(settings.anthropic_key_hint)}
+                geminiConnected={Boolean(settings.gemini_key_hint)}
+                selected={settings.ai_provider}
+              />
             </div>
           ) : (
             <NoAccess />

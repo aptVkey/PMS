@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions";
 import { CASH_COST_TYPES, CASH_TRANSACTION_TYPES } from "@/lib/cash";
-import { createAnthropicClient, extractReceiptFields } from "@/lib/ai";
+import { getReceiptExtractor } from "@/lib/ai";
 
 const TransactionSchema = z.object({
   type: z.enum(CASH_TRANSACTION_TYPES, { error: "Tipo inválido." }),
@@ -128,11 +128,11 @@ export async function extractReceiptData(
   const denied = await requirePermission("caixa");
   if (denied) return denied;
 
-  const anthropic = await createAnthropicClient();
-  if (!anthropic) {
+  const extractor = await getReceiptExtractor();
+  if (!extractor) {
     return {
       error:
-        "A deteção por IA não está configurada. Liga a Anthropic em Integrações.",
+        "A deteção por IA não está configurada. Liga a Anthropic ou a Gemini em Integrações.",
     };
   }
 
@@ -157,12 +157,7 @@ export async function extractReceiptData(
 
   try {
     const base64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
-    const extraction = await extractReceiptFields(
-      anthropic,
-      base64,
-      mimeType,
-      categoryHints,
-    );
+    const extraction = await extractor.extract(base64, mimeType, categoryHints);
     return { success: true, ...extraction };
   } catch {
     return { error: "Não foi possível analisar o ficheiro. Tenta novamente." };

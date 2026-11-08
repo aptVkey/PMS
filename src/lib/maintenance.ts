@@ -47,6 +47,9 @@ export type MaintenanceIssue = {
   assigned_to: string | null;
   started_at: string | null;
   completed_at: string | null;
+  // Custo gravado quando a ocorrência é resolvida (horas x valor/hora de então).
+  hourly_rate_snapshot: number | null;
+  total_cost: number | null;
   created_at: string;
   updated_at: string;
   room?: { name: string } | null;

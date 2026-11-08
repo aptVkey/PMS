@@ -78,6 +78,7 @@ const EditMaintenanceIssueSchema = z
     title: z.string().min(1, { error: "Indica um título." }),
     description: z.string().optional(),
     priority: z.enum(MAINTENANCE_PRIORITIES),
+    assignedTo: z.string().optional(),
   })
   .refine((data) => data.roomId || data.locationLabel, {
     error: "Escolhe um quarto ou indica uma zona comum.",
@@ -98,6 +99,7 @@ export async function updateMaintenanceIssueDetails(
     title: formData.get("title"),
     description: formData.get("description") || undefined,
     priority: formData.get("priority"),
+    assignedTo: formData.get("assignedTo") || undefined,
   });
 
   if (!parsed.success) {
@@ -118,6 +120,11 @@ export async function updateMaintenanceIssueDetails(
       title: parsed.data.title,
       description: parsed.data.description || null,
       priority: parsed.data.priority,
+      // Só mexe no responsável se o formulário o enviou (o select existe
+      // sempre; "Não atribuído" envia vazio e desatribui de propósito).
+      ...(formData.has("assignedTo")
+        ? { assigned_to: parsed.data.assignedTo || null }
+        : {}),
     })
     .eq("id", parsed.data.id);
 

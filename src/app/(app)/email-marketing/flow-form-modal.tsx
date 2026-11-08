@@ -41,7 +41,10 @@ export function FlowFormModal({
           </button>
         </div>
 
-        <form action={formAction} className="ui-form-scroll flex flex-col gap-4 overflow-y-auto px-6 py-5">
+        <form
+          action={formAction}
+          className="ui-form-scroll flex flex-col gap-4 overflow-y-auto px-6 py-5"
+        >
           {flow && <input type="hidden" name="id" value={flow.id} />}
 
           <div className="flex flex-col gap-1.5">

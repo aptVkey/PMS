@@ -2,33 +2,58 @@
 
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import {
-  DOCUMENT_TYPE_LABELS,
-  type DocumentType,
-  type Guest,
-} from "@/lib/guests";
-import type { Booking } from "@/lib/bookings";
+import type { Guest } from "@/lib/guests";
+import { autoTagLabels, type CrmTag, type GuestStats } from "@/lib/crm";
+import type { GuestBooking } from "./page";
 import { GuestFormModal } from "./guest-form-modal";
 import { ConfirmDeleteModal } from "./confirm-delete-modal";
 import { ModalPortal } from "@/components/modal-portal";
+import { AutoChip, TagChip, formatMoney } from "./crm-ui";
+
+const dateLabel = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("pt-PT") : "—";
 
 export function GuestRow({
   guest,
   bookings,
+  stats,
+  tags,
+  onOpen,
 }: {
   guest: Guest;
-  bookings: Booking[];
+  bookings: GuestBooking[];
+  stats: GuestStats;
+  tags: CrmTag[];
+  onOpen: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const autoLabels = autoTagLabels(stats);
 
   return (
     <>
-      <tr className="border-b border-border last:border-0">
-        <td className="whitespace-nowrap px-4 py-3">
-          <p className="text-body font-semibold text-ink">{guest.name}</p>
+      <tr className="border-b border-border last:border-0 hover:bg-surface-1/60">
+        <td className="px-4 py-3">
+          <button
+            type="button"
+            onClick={onOpen}
+            title="Abrir ficha do hóspede"
+            className="text-left text-body font-semibold text-action hover:underline"
+          >
+            {guest.name}
+          </button>
           {guest.nationality && (
             <p className="text-[12px] text-ink-subdued">{guest.nationality}</p>
+          )}
+          {(tags.length > 0 || autoLabels.length > 0) && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <TagChip key={tag.id} tag={tag} />
+              ))}
+              {autoLabels.map((label) => (
+                <AutoChip key={label} label={label} />
+              ))}
+            </div>
           )}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
@@ -36,24 +61,17 @@ export function GuestRow({
           {guest.phone && <p>{guest.phone}</p>}
           {!guest.email && !guest.phone && <span>—</span>}
         </td>
-        <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
-          {guest.document_type
-            ? DOCUMENT_TYPE_LABELS[guest.document_type as DocumentType]
-            : "—"}
-          {guest.document_number && (
-            <span className="text-ink-subdued"> · {guest.document_number}</span>
-          )}
-        </td>
         <td className="whitespace-nowrap px-4 py-3 text-center text-body text-ink-muted">
-          {guest.visit_count}
+          {stats.stays}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
-          {guest.last_stay_at
-            ? new Date(guest.last_stay_at).toLocaleDateString("pt-PT")
-            : "—"}
+          {dateLabel(stats.lastStay)}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
-          {guest.total_spent > 0 ? `${guest.total_spent.toFixed(2)} €` : "—"}
+          {dateLabel(stats.nextStay)}
+        </td>
+        <td className="whitespace-nowrap px-4 py-3 text-body text-ink-muted">
+          {stats.value > 0 ? formatMoney(stats.value) : "—"}
         </td>
         <td className="whitespace-nowrap px-4 py-3">
           <div className="flex gap-2">

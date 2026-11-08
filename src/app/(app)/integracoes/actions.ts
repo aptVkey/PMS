@@ -13,7 +13,8 @@ import {
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET,
 } from "@/lib/stripe";
-import { ANTHROPIC_API_KEY } from "@/lib/ai";
+import { ANTHROPIC_API_KEY, GEMINI_API_KEY, verifyGeminiKey } from "@/lib/ai";
+import { AI_PROVIDERS, type AiProvider } from "@/lib/ai-providers";
 import { RESEND_API_KEY } from "@/lib/resend";
 import {
   WHATSAPP_ACCESS_TOKEN,
@@ -279,8 +280,136 @@ export async function disconnectAnthropic(): Promise<
     .update({ anthropic_key_hint: null })
     .eq("id", true);
 
+  // Se era o fornecedor escolhido, volta ao automático.
+  await admin
+    .from("integration_settings")
+    .update({ ai_provider: null })
+    .eq("id", true)
+    .eq("ai_provider", "anthropic");
+
   if (error) {
     return { error: "Não foi possível desligar a IA. Tenta novamente." };
+  }
+
+  revalidatePath("/integracoes");
+  return { success: true };
+}
+
+const GeminiSettingsSchema = z.object({
+  apiKey: z.string().min(1, { error: "Indica a chave de API." }),
+});
+
+export async function saveGeminiSettings(
+  _prevState: IntegrationsFormState,
+  formData: FormData,
+): Promise<IntegrationsFormState> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const parsed = GeminiSettingsSchema.safeParse({
+    apiKey: (formData.get("apiKey") as string)?.trim(),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Verifica os campos." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return {
+      error:
+        "Falta a chave service_role do Supabase no servidor (SUPABASE_SERVICE_ROLE_KEY).",
+    };
+  }
+
+  if (!(await verifyGeminiKey(parsed.data.apiKey))) {
+    return {
+      error: "A Google recusou esta chave. Confirma que a copiaste inteira.",
+    };
+  }
+
+  const { error: secretError } = await admin.rpc("set_integration_secret", {
+    p_name: GEMINI_API_KEY,
+    p_value: parsed.data.apiKey,
+  });
+
+  if (secretError) {
+    return { error: "Não foi possível guardar a chave. Tenta novamente." };
+  }
+
+  const { error } = await admin
+    .from("integration_settings")
+    .update({ gemini_key_hint: maskSecret(parsed.data.apiKey) })
+    .eq("id", true);
+
+  if (error) {
+    return {
+      error: "Não foi possível guardar as definições. Tenta novamente.",
+    };
+  }
+
+  revalidatePath("/integracoes");
+  return { success: true, message: "Chave da Gemini guardada." };
+}
+
+export async function disconnectGemini(): Promise<
+  { error: string } | { success: true }
+> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return { error: "Sem acesso ao servidor de dados." };
+  }
+
+  await admin.rpc("set_integration_secret", {
+    p_name: GEMINI_API_KEY,
+    p_value: "",
+  });
+
+  const { error } = await admin
+    .from("integration_settings")
+    .update({ gemini_key_hint: null })
+    .eq("id", true);
+
+  if (error) {
+    return { error: "Não foi possível desligar a Gemini. Tenta novamente." };
+  }
+
+  await admin
+    .from("integration_settings")
+    .update({ ai_provider: null })
+    .eq("id", true)
+    .eq("ai_provider", "gemini");
+
+  revalidatePath("/integracoes");
+  return { success: true };
+}
+
+// Escolhe qual fornecedor lê as faturas quando há mais do que um ligado.
+export async function setAiProvider(
+  provider: AiProvider,
+): Promise<{ error: string } | { success: true }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!AI_PROVIDERS.includes(provider)) {
+    return { error: "Fornecedor inválido." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return { error: "Sem acesso ao servidor de dados." };
+  }
+
+  const { error } = await admin
+    .from("integration_settings")
+    .update({ ai_provider: provider })
+    .eq("id", true);
+
+  if (error) {
+    return { error: "Não foi possível guardar a escolha. Tenta novamente." };
   }
 
   revalidatePath("/integracoes");

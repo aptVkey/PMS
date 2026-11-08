@@ -14,6 +14,7 @@ import {
   MAINTENANCE_PRIORITY_LABELS,
   type MaintenanceIssue,
 } from "@/lib/maintenance";
+import type { StaffMember } from "@/lib/staff";
 
 const initialState: MaintenanceIssueFormState = undefined;
 
@@ -24,14 +25,25 @@ const labelClasses = "text-body font-semibold text-ink";
 export function MaintenanceIssueFormModal({
   issue,
   rooms,
+  staff,
   canDelete,
   onClose,
 }: {
   issue?: MaintenanceIssue;
   rooms: { id: string; name: string }[];
+  staff: StaffMember[];
   canDelete: boolean;
   onClose: () => void;
 }) {
+  // Só colaboradores ativos com permissão de Manutenção podem receber
+  // ocorrências. Se o responsável atual já não cumpre isto, continua visível
+  // para não ser desatribuído sem querer.
+  const assignableStaff = staff.filter(
+    (member) =>
+      member.active &&
+      (member.permissions.includes("manutencao") ||
+        member.id === issue?.assigned_to),
+  );
   const action = issue ? updateMaintenanceIssueDetails : createMaintenanceIssue;
   const [state, formAction, pending] = useActionState(action, initialState);
   const [locationType, setLocationType] = useState<"room" | "common">(
@@ -165,6 +177,31 @@ export function MaintenanceIssueFormModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="assignedTo" className={labelClasses}>
+              Atribuir a
+            </label>
+            <select
+              id="assignedTo"
+              name="assignedTo"
+              defaultValue={issue?.assigned_to ?? ""}
+              className={inputClasses}
+            >
+              <option value="">Não atribuído</option>
+              {assignableStaff.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+            {assignableStaff.length === 0 && (
+              <p className="text-[12px] text-ink-subdued">
+                Ainda não há colaboradores com a permissão de Manutenção. Dá-a
+                no separador Equipa.
+              </p>
+            )}
           </div>
 
           {state && "error" in state && (

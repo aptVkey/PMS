@@ -10,7 +10,7 @@ export default async function IntegracoesPage() {
   const { data: settings } = await supabase
     .from("integration_settings")
     .select(
-      "stripe_secret_hint, stripe_webhook_set, stripe_account_label, app_url, anthropic_key_hint, resend_key_hint, resend_from_email, resend_from_name, whatsapp_token_hint, whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_verified_name, paybyrd_key_hint, paybyrd_webhook_id",
+      "stripe_secret_hint, stripe_webhook_set, stripe_account_label, app_url, anthropic_key_hint, gemini_key_hint, ai_provider, resend_key_hint, resend_from_email, resend_from_name, whatsapp_token_hint, whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_verified_name, paybyrd_key_hint, paybyrd_webhook_id",
     )
     .eq("id", true)
     .maybeSingle();

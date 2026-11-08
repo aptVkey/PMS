@@ -49,13 +49,21 @@ export function EquipasClient({
   // Administradores (permissão "equipas") veem sempre todos os sub-separadores.
   const availableTabs = useMemo(
     () =>
-      TABS.filter((t) => canManageTeam || permissions.includes(t.permission) || (t.key === "limpeza" && permissions.includes("gerir_limpeza"))),
+      TABS.filter(
+        (t) =>
+          canManageTeam ||
+          permissions.includes(t.permission) ||
+          (t.key === "limpeza" && permissions.includes("gerir_limpeza")),
+      ),
     [permissions, canManageTeam],
   );
   const [tab, setTab] = useState<Tab>(availableTabs[0]?.key ?? "equipa");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const canSeeLimpeza = canManageTeam || permissions.includes("limpeza") || permissions.includes("gerir_limpeza");
+  const canSeeLimpeza =
+    canManageTeam ||
+    permissions.includes("limpeza") ||
+    permissions.includes("gerir_limpeza");
   const canSeeManutencao = canManageTeam || permissions.includes("manutencao");
 
   return (
@@ -95,7 +103,11 @@ export function EquipasClient({
           >
             <Icon className="h-4 w-4" strokeWidth={2} />
             {label}
-            {key === "equipa" && <span className="ml-1 hidden rounded bg-primary/5 px-1.5 py-0.5 text-[10px] tabular-nums sm:inline">{staff.length}</span>}
+            {key === "equipa" && (
+              <span className="ml-1 hidden rounded bg-primary/5 px-1.5 py-0.5 text-[10px] tabular-nums sm:inline">
+                {staff.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -115,8 +127,21 @@ export function EquipasClient({
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border bg-canvas shadow-card">
             <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-5">
-              <div><h2 className="text-body font-semibold text-ink">Membros da equipa</h2><p className="mt-1 text-[12px] text-ink-subdued">Pessoas, responsabilidades e acessos.</p></div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-border px-2.5 py-1 text-[11px] text-ink-muted"><span className="h-1.5 w-1.5 rounded-pill bg-success" />{staff.filter(member => member.active).length} {staff.filter(member => member.active).length === 1 ? "ativo" : "ativos"}</span>
+              <div>
+                <h2 className="text-body font-semibold text-ink">
+                  Membros da equipa
+                </h2>
+                <p className="mt-1 text-[12px] text-ink-subdued">
+                  Pessoas, responsabilidades e acessos.
+                </p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-border px-2.5 py-1 text-[11px] text-ink-muted">
+                <span className="h-1.5 w-1.5 rounded-pill bg-success" />
+                {staff.filter((member) => member.active).length}{" "}
+                {staff.filter((member) => member.active).length === 1
+                  ? "ativo"
+                  : "ativos"}
+              </span>
             </div>
             <table className="w-full text-left">
               <thead>

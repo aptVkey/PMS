@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { PermissionKey } from "@/lib/staff";
 import { AppSidebar } from "./app-sidebar";
 import { AppTopbar } from "./app-topbar";
+import { AssistantWidget } from "./assistant-widget";
 
 export function AppShell({
   permissions,
@@ -54,6 +55,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <AssistantWidget />
     </div>
   );
 }

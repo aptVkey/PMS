@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import type { StaffMember } from "@/lib/staff";
-import type { CleaningProgress, CleaningTask, CleaningTaskResult } from "@/lib/cleaning";
+import type {
+  CleaningProgress,
+  CleaningTask,
+  CleaningTaskResult,
+} from "@/lib/cleaning";
 import { addDaysISO, todayISO } from "@/lib/date-utils";
 import type { MaintenanceIssue } from "@/lib/maintenance";
 import { EquipasClient } from "./equipas-client";
@@ -59,10 +63,18 @@ export default async function EquipasPage() {
   const { data: cleaningResults } = isAdmin
     ? await supabase.from("cleaning_task_results").select("*")
     : { data: [] };
-  const resultsByTask = new Map(((cleaningResults ?? []) as CleaningTaskResult[]).map(result => [result.task_id, result]));
+  const resultsByTask = new Map(
+    ((cleaningResults ?? []) as CleaningTaskResult[]).map((result) => [
+      result.task_id,
+      result,
+    ]),
+  );
   const cleaningTasksRaw = (cleaningTasks as unknown as CleaningTask[]) ?? [];
   const cleaningTasksForClient = isAdmin
-    ? cleaningTasksRaw.map(task => ({ ...task, result: resultsByTask.get(task.id) ?? null }))
+    ? cleaningTasksRaw.map((task) => ({
+        ...task,
+        result: resultsByTask.get(task.id) ?? null,
+      }))
     : cleaningTasksRaw.map((task) => ({
         ...task,
         assignee: task.assignee
@@ -78,6 +90,8 @@ export default async function EquipasPage() {
         ...issue,
         started_at: null,
         completed_at: null,
+        hourly_rate_snapshot: null,
+        total_cost: null,
         assignee: issue.assignee
           ? { ...issue.assignee, hourly_rate: null }
           : null,
