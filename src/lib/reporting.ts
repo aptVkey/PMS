@@ -49,6 +49,7 @@ export const PERIOD_PRESETS = [
   "7dias",
   "mes",
   "ano",
+  "lifetime",
   "custom",
 ] as const;
 
@@ -59,10 +60,30 @@ export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   "7dias": "7 dias",
   mes: "Este mês",
   ano: "Este ano",
+  lifetime: "Lifetime",
   custom: "Personalizado",
 };
 
-export function getPresetRange(preset: PeriodPreset): {
+// Lifetime: da data mais antiga com dados até hoje (ou à última data futura).
+export function getLifetimeRange(dates: string[]): {
+  start: string;
+  end: string;
+} {
+  const today = todayISO();
+  let start = today;
+  let end = today;
+  for (const d of dates) {
+    if (!d) continue;
+    if (d < start) start = d;
+    if (d > end) end = d;
+  }
+  return { start, end };
+}
+
+export function getPresetRange(
+  preset: PeriodPreset,
+  lifetimeDates: string[] = [],
+): {
   start: string;
   end: string;
 } {
@@ -86,6 +107,8 @@ export function getPresetRange(preset: PeriodPreset): {
       const [y] = today.split("-").map(Number);
       return { start: `${y}-01-01`, end: `${y}-12-31` };
     }
+    case "lifetime":
+      return getLifetimeRange(lifetimeDates);
     default:
       return { start: today, end: today };
   }

@@ -80,8 +80,11 @@ export function RelatoriosClient({
     if (preset === "custom" && customRange.start && customRange.end) {
       return { start: customRange.start, end: customRange.end };
     }
-    return getPresetRange(preset === "custom" ? "mes" : preset);
-  }, [preset, customRange]);
+    return getPresetRange(
+      preset === "custom" ? "mes" : preset,
+      bookings.flatMap((b) => [b.check_in, b.check_out]),
+    );
+  }, [preset, customRange, bookings]);
 
   const daysInRange = diffDaysISO(range.start, range.end) + 1;
 
@@ -130,7 +133,9 @@ export function RelatoriosClient({
 
   // Sem reservas no período homólogo não há base de comparação — mostra
   // "sem dados" em vez de variações enganosas.
-  const hasBase = previous.totalBookings > 0 || previous.roomNights > 0;
+  const hasBase =
+    preset !== "lifetime" &&
+    (previous.totalBookings > 0 || previous.roomNights > 0);
   const money = formatCurrency;
   const compare = {
     revenue: buildComparison(revenue, previous.revenue, hasBase, money),
@@ -372,8 +377,14 @@ export function RelatoriosClient({
       </div>
 
       <p className="text-[12px] text-ink-subdued">
-        A mostrar dados de {formatPeriodLabel(range.start, range.end)} · a
-        comparar com {formatPeriodLabel(previousRange.start, previousRange.end)}
+        A mostrar dados de {formatPeriodLabel(range.start, range.end)}
+        {preset !== "lifetime" && (
+          <>
+            {" "}
+            · a comparar com{" "}
+            {formatPeriodLabel(previousRange.start, previousRange.end)}
+          </>
+        )}
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

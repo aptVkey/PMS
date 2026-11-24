@@ -5,6 +5,8 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Briefcase,
+  ChevronLeft,
+  ChevronRight,
   Landmark,
   LineChart,
   Percent,
@@ -129,6 +131,8 @@ function CategoryDonutCard({
   );
 }
 
+const PAGE_SIZE = 20;
+
 export function CaixaClient({
   transactions,
   receiptUrls,
@@ -150,8 +154,11 @@ export function CaixaClient({
     if (preset === "custom" && customRange.start && customRange.end) {
       return { start: customRange.start, end: customRange.end };
     }
-    return getPresetRange(preset === "custom" ? "mes" : preset);
-  }, [preset, customRange]);
+    return getPresetRange(
+      preset === "custom" ? "mes" : preset,
+      transactions.map((t) => t.transaction_date),
+    );
+  }, [preset, customRange, transactions]);
 
   const periodTransactions = useMemo(
     () =>
@@ -249,6 +256,25 @@ export function CaixaClient({
   }, [periodTransactions, query, typeFilter, categoryFilter]);
 
   const hasFilters = query !== "" || typeFilter !== "" || categoryFilter !== "";
+
+  // Paginação: 20 movimentos por página; volta à página 1 quando os filtros mudam.
+  const filterSignature = `${preset}|${range.start}|${range.end}|${query}|${typeFilter}|${categoryFilter}`;
+  const [pageState, setPageState] = useState({ page: 1, signature: "" });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTransactions.length / PAGE_SIZE),
+  );
+  const currentPage =
+    pageState.signature === filterSignature
+      ? Math.min(pageState.page, totalPages)
+      : 1;
+  const goToPage = (page: number) =>
+    setPageState({ page, signature: filterSignature });
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageTransactions = filteredTransactions.slice(
+    pageStart,
+    pageStart + PAGE_SIZE,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -476,7 +502,7 @@ export function CaixaClient({
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.map((transaction) => (
+              {pageTransactions.map((transaction) => (
                 <TransactionRow
                   key={transaction.id}
                   transaction={transaction}
@@ -489,6 +515,37 @@ export function CaixaClient({
               ))}
             </tbody>
           </table>
+          {filteredTransactions.length > PAGE_SIZE && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-1 px-4 py-3 text-[13px] text-ink-muted">
+              <span>
+                {pageStart + 1}–{pageStart + pageTransactions.length} de{" "}
+                {filteredTransactions.length} movimentos
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-canvas px-2 font-semibold text-ink hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                  Anterior
+                </button>
+                <span className="px-1 font-semibold text-ink">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-canvas px-2 font-semibold text-ink hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Seguinte
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
