@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allowRequest, clientIp } from "@/lib/rate-limit";
 
 export type SiteFormState =
   { error: string } | { success: true; message: string } | undefined;
@@ -17,6 +18,10 @@ export async function subscribeNewsletter(
   // Campo-armadilha: um humano nunca o preenche.
   if (formData.get("website")) {
     return { success: true, message: "Obrigado! Ficas a par das novidades." };
+  }
+
+  if (!allowRequest(`newsletter:${await clientIp()}`, 5, 10 * 60_000)) {
+    return { error: "Demasiados pedidos. Tenta daqui a uns minutos." };
   }
 
   const parsed = NewsletterSchema.safeParse({
@@ -62,6 +67,10 @@ export async function sendContactMessage(
       success: true,
       message: "Mensagem enviada. Respondemos o mais depressa possível.",
     };
+  }
+
+  if (!allowRequest(`contact:${await clientIp()}`, 5, 10 * 60_000)) {
+    return { error: "Demasiados pedidos. Tenta daqui a uns minutos." };
   }
 
   const parsed = ContactSchema.safeParse({

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { appUrl } from "@/lib/stripe";
 import type { Room } from "@/lib/rooms";
-import type { IcalFeedRow } from "@/lib/ical";
+import type { IcalConflictRow, IcalFeedRow } from "@/lib/ical";
 import { CanaisClient } from "./canais-client";
 
 export default async function CanaisPage({
@@ -12,14 +12,23 @@ export default async function CanaisPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: rooms }, { data: feeds }, base] = await Promise.all([
-    supabase.from("rooms").select("*").eq("property_id", id).order("name"),
-    supabase
-      .from("ical_feeds")
-      .select("*, room:rooms!inner(property_id)")
-      .eq("room.property_id", id),
-    appUrl(),
-  ]);
+  const [{ data: rooms }, { data: feeds }, { data: conflicts }, base] =
+    await Promise.all([
+      supabase.from("rooms").select("*").eq("property_id", id).order("name"),
+      supabase
+        .from("ical_feeds")
+        .select("*, room:rooms!inner(property_id)")
+        .eq("room.property_id", id),
+      supabase
+        .from("ical_conflicts")
+        .select(
+          "id, feed_id, room_id, summary, check_in, check_out, same_dates, detected_at, feed:ical_feeds(channel), room:rooms!inner(name, property_id), blocking:bookings(booking_number, check_in, check_out, channel, guest:guests(name))",
+        )
+        .eq("room.property_id", id)
+        .is("resolved_at", null)
+        .order("detected_at", { ascending: false }),
+      appUrl(),
+    ]);
 
   const cleanFeeds: IcalFeedRow[] = (feeds ?? []).map((f) => ({
     id: f.id,
@@ -43,6 +52,7 @@ export default async function CanaisPage({
       propertyId={id}
       rooms={(rooms as Room[]) ?? []}
       feeds={cleanFeeds}
+      conflicts={(conflicts as unknown as IcalConflictRow[]) ?? []}
       appUrl={base}
     />
   );

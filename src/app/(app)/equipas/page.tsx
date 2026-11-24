@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentStaff } from "@/lib/current-staff";
 import type { StaffMember } from "@/lib/staff";
 import type {
   CleaningProgress,
@@ -11,23 +12,28 @@ import { EquipasClient } from "./equipas-client";
 
 export default async function EquipasPage() {
   const supabase = await createClient();
+  // Já calculado pelo layout neste pedido (cache): não volta à rede.
+  const me = await getCurrentStaff();
 
   const [
     { data: staff },
-    { data: authData },
     { data: rooms },
     { data: cleaningTasks },
     { data: maintenanceIssues },
     { data: progressRows },
   ] = await Promise.all([
     supabase.from("staff").select("*").order("created_at"),
-    supabase.auth.getUser(),
     supabase.from("rooms").select("id, name").order("name"),
     supabase
       .from("cleaning_tasks")
       .select(
         "*, room:rooms(name), assignee:staff(name, hourly_rate), booking:bookings(guest:guests(name))",
       )
+      // Só a janela que o ecrã usa (o histórico completo está nos
+      // Relatórios): ler tudo crescia sem fim e, a partir de 1000 linhas,
+      // o Supabase cortaria precisamente as tarefas mais recentes.
+      .gte("task_date", addDaysISO(todayISO(), -90))
+      .lte("task_date", addDaysISO(todayISO(), 180))
       .order("task_date"),
     supabase
       .from("maintenance_issues")
@@ -46,7 +52,7 @@ export default async function EquipasPage() {
     cleaningProgress[row.task_id] = { done: row.done, total: row.total };
   }
 
-  const currentUserId = authData.user?.id ?? "";
+  const currentUserId = me.userId ?? "";
   const staffList = (staff as StaffMember[]) ?? [];
   const currentStaff = staffList.find((member) => member.id === currentUserId);
   const permissions = currentStaff?.permissions ?? [];

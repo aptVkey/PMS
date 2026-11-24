@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { appUrl, createStripeClient } from "@/lib/stripe";
+import { addDaysISO, diffDaysISO, todayISO } from "@/lib/date-utils";
+import { allowRequest, clientIp } from "@/lib/rate-limit";
 import {
   calculateStayTotal,
   resolveMinStay,
@@ -12,22 +14,42 @@ import {
 
 const EXCLUSION_VIOLATION = "23P01";
 
+// Limites de uma reserva direta pública. Sem eles, alguém podia criar
+// pedidos "pendentes" para o ano inteiro e bloquear o calendário.
+const MAX_NIGHTS = 90;
+const MAX_DAYS_AHEAD = 730;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 const DirectBookingSchema = z
   .object({
-    propertyId: z.string().min(1),
-    roomId: z.string().min(1, { error: "Escolhe uma unidade." }),
-    checkIn: z.string().min(1, { error: "Indica a data de chegada." }),
-    checkOut: z.string().min(1, { error: "Indica a data de partida." }),
-    numAdults: z.coerce.number().int().min(1),
-    numChildren: z.coerce.number().int().min(0),
-    numInfants: z.coerce.number().int().min(0),
-    name: z.string().min(1, { error: "Indica o teu nome." }),
-    email: z.email({ error: "Indica um email válido." }),
-    phone: z.string().optional(),
-    notes: z.string().optional(),
+    propertyId: z.string().min(1).max(64),
+    roomId: z.string().min(1, { error: "Escolhe uma unidade." }).max(64),
+    checkIn: z.string().regex(ISO_DATE, { error: "Indica a data de chegada." }),
+    checkOut: z
+      .string()
+      .regex(ISO_DATE, { error: "Indica a data de partida." }),
+    numAdults: z.coerce.number().int().min(1).max(30),
+    numChildren: z.coerce.number().int().min(0).max(30),
+    numInfants: z.coerce.number().int().min(0).max(10),
+    name: z.string().trim().min(1, { error: "Indica o teu nome." }).max(120),
+    email: z.email({ error: "Indica um email válido." }).max(254),
+    phone: z.string().max(40).optional(),
+    notes: z.string().max(2000).optional(),
   })
   .refine((data) => data.checkOut > data.checkIn, {
     error: "A data de partida tem de ser depois da chegada.",
+    path: ["checkOut"],
+  })
+  .refine((data) => data.checkIn >= todayISO(), {
+    error: "A data de chegada já passou.",
+    path: ["checkIn"],
+  })
+  .refine((data) => data.checkIn <= addDaysISO(todayISO(), MAX_DAYS_AHEAD), {
+    error: "Só aceitamos reservas até 2 anos de antecedência.",
+    path: ["checkIn"],
+  })
+  .refine((data) => diffDaysISO(data.checkIn, data.checkOut) <= MAX_NIGHTS, {
+    error: `Para estadias com mais de ${MAX_NIGHTS} noites, contacta-nos diretamente.`,
     path: ["checkOut"],
   });
 
@@ -53,6 +75,13 @@ export async function requestDirectBooking(
   _prevState: DirectBookingState,
   formData: FormData,
 ): Promise<DirectBookingState> {
+  // Cada pedido segura datas como "pendente": limita pedidos por IP.
+  if (!allowRequest(`direct-booking:${await clientIp()}`, 10, 60 * 60_000)) {
+    return {
+      error: "Fizeste demasiados pedidos seguidos. Tenta mais tarde.",
+    };
+  }
+
   const parsed = DirectBookingSchema.safeParse({
     propertyId: formData.get("propertyId"),
     roomId: formData.get("roomId"),
@@ -222,6 +251,10 @@ export async function requestDirectBooking(
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: parsed.data.email,
+      // O checkout expira em 30 min (o mínimo da Stripe): o webhook
+      // checkout.session.expired cancela a reserva pendente e liberta as
+      // datas, em vez de ficarem presas por um pedido que nunca foi pago.
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
       // O booking_id viaja nos metadados para o webhook saber a que reserva
       // associar o pagamento.
       metadata: { booking_id: booking.id },

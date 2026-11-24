@@ -288,8 +288,9 @@ export function RelatoriosClient({
     const totalCost = completed.reduce(
       (sum, t) =>
         sum +
-        (t.result?.total_cost ?? (elapsedHours(t.started_at, t.completed_at) *
-          (t.assignee?.hourly_rate ?? 0))),
+        (t.result?.total_cost ??
+          elapsedHours(t.started_at, t.completed_at) *
+            (t.assignee?.hourly_rate ?? 0)),
       0,
     );
     return { count: completed.length, totalHours, totalCost };

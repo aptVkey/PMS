@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   BedDouble,
   CalendarDays,
   ClipboardList,
@@ -50,11 +51,23 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const today = todayISO();
 
+  // Permissões já calculadas pelo layout neste pedido (cache): instantâneo.
+  const { permissions } = await getSessionPermissions();
+  const canSeeCrm = permissions.includes("hospedes");
+  // Reservas externas (iCal) que não couberam no calendário: overbooking.
+  const canSeeConflicts =
+    permissions.includes("quartos") || permissions.includes("reservas");
+
+  // Tudo em paralelo: antes os blocos do CRM e dos conflitos esperavam pelos
+  // anteriores, somando idas à base de dados.
   const [
     { data: metricsData },
     { data: upcomingData },
     { data: cleaningTasksData },
     { data: maintenanceIssuesData },
+    { data: crmTasksData },
+    { count: newLeadsCount },
+    { data: conflictRows },
   ] = await Promise.all([
     // Os KPIs são agregados em SQL — antes esta página carregava todas as
     // reservas não canceladas com os pagamentos em join só para os contar.
@@ -78,14 +91,9 @@ export default async function DashboardPage() {
       .neq("status", "resolvido")
       .order("created_at")
       .limit(PENDING_TASKS_LIMIT),
-  ]);
-
-  // Follow-ups do CRM: só para quem tem a permissão (a RLS também o garante).
-  const { permissions } = await getSessionPermissions();
-  const canSeeCrm = permissions.includes("hospedes");
-  const [{ data: crmTasksData }, { count: newLeadsCount }] = canSeeCrm
-    ? await Promise.all([
-        supabase
+    // Follow-ups do CRM: só para quem tem a permissão (a RLS também o garante).
+    canSeeCrm
+      ? supabase
           .from("crm_tasks")
           .select(
             "id, title, due_date, guest:guests(name), lead:crm_leads(name)",
@@ -93,13 +101,28 @@ export default async function DashboardPage() {
           .eq("done", false)
           .lte("due_date", today)
           .order("due_date")
-          .limit(5),
-        supabase
+          .limit(5)
+      : Promise.resolve({ data: null }),
+    canSeeCrm
+      ? supabase
           .from("crm_leads")
           .select("id", { count: "exact", head: true })
-          .eq("status", "novo"),
-      ])
-    : [{ data: null }, { count: 0 }];
+          .eq("status", "novo")
+      : Promise.resolve({ count: 0 }),
+    canSeeConflicts
+      ? supabase
+          .from("ical_conflicts")
+          .select("id, room:rooms(property_id)")
+          .is("resolved_at", null)
+          .limit(50)
+      : Promise.resolve({ data: null }),
+  ]);
+  const conflictList =
+    (conflictRows as unknown as
+      { id: string; room: { property_id: string } | null }[] | null) ?? [];
+  const conflictPropertyId = conflictList.find((c) => c.room)?.room
+    ?.property_id;
+
   const crmTasks =
     (crmTasksData as unknown as {
       id: string;
@@ -184,6 +207,32 @@ export default async function DashboardPage() {
           <KpiCard key={label} label={label} value={value} icon={icon} />
         ))}
       </div>
+
+      {conflictList.length > 0 && (
+        <Link
+          href={
+            conflictPropertyId
+              ? `/alojamentos/${conflictPropertyId}/canais`
+              : "/alojamentos"
+          }
+          role="alert"
+          className="flex items-center gap-3 rounded-lg border border-error/30 bg-error/5 px-5 py-4 transition-colors hover:bg-error/10"
+        >
+          <AlertTriangle
+            className="h-5 w-5 shrink-0 text-error"
+            strokeWidth={2}
+          />
+          <div className="min-w-0">
+            <p className="text-body font-bold text-error">
+              {conflictList.length} possível(is) overbooking
+            </p>
+            <p className="text-[12px] text-ink-muted">
+              Há reservas dos canais (Booking, Airbnb, VRBO) que se sobrepõem a
+              reservas do PMS. Toca para ver e resolver.
+            </p>
+          </div>
+        </Link>
+      )}
 
       {canSeeCrm && (crmTasks.length > 0 || (newLeadsCount ?? 0) > 0) && (
         <div className="overflow-hidden rounded-lg border border-border bg-canvas shadow-card">

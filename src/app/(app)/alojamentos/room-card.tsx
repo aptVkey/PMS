@@ -60,7 +60,9 @@ export function RoomCard({
       </div>
 
       <div className="p-5">
-        <p className="text-[17px] font-semibold tracking-tight text-ink">{room.name}</p>
+        <p className="text-[17px] font-semibold tracking-tight text-ink">
+          {room.name}
+        </p>
         <p className="text-[12px] text-ink-subdued">
           {ROOM_TYPE_LABELS[room.type]}
         </p>
@@ -88,7 +90,10 @@ export function RoomCard({
                 style: "currency",
                 currency: room.currency,
               }).format(room.base_price)}
-              <span className="text-[12px] font-normal text-ink-subdued"> / noite</span>
+              <span className="text-[12px] font-normal text-ink-subdued">
+                {" "}
+                / noite
+              </span>
             </>
           ) : (
             <span className="font-normal text-ink-subdued">

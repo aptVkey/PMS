@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
+import { getCurrentStaff } from "@/lib/current-staff";
 import type { Guest } from "@/lib/guests";
 import type { Booking } from "@/lib/bookings";
 import type {
@@ -32,9 +34,10 @@ async function fetchGuestTags(
 
 export default async function HospedesPage() {
   const supabase = await createClient();
+  // Já calculado pelo layout neste pedido (cache): não volta à rede.
+  const me = await getCurrentStaff();
 
   const [
-    { data: authData },
     { data: guests },
     { data: bookings },
     { data: tags },
@@ -46,15 +49,22 @@ export default async function HospedesPage() {
     { data: tagRules },
     { data: segmentLists },
   ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("guests")
-      .select("*")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("bookings")
-      .select("*, room:rooms(name, property:properties(name))")
-      .order("check_in", { ascending: false }),
+    fetchAll((from, to) =>
+      supabase
+        .from("guests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAll((from, to) =>
+      supabase
+        .from("bookings")
+        .select("*, room:rooms(name, property:properties(name))")
+        .order("check_in", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("crm_tags").select("id, name, color").order("name"),
     fetchGuestTags(supabase),
     supabase
@@ -80,7 +90,7 @@ export default async function HospedesPage() {
 
   return (
     <HospedesClient
-      currentUserId={authData.user?.id ?? ""}
+      currentUserId={me.userId ?? ""}
       guests={(guests as Guest[]) ?? []}
       bookings={(bookings as unknown as GuestBooking[]) ?? []}
       tags={(tags as CrmTag[]) ?? []}

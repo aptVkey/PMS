@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentStaff } from "@/lib/current-staff";
 import type { PermissionKey } from "@/lib/staff";
 
 // As policies RLS já recusam escritas sem permissão, mas devolvem um erro
@@ -13,25 +13,8 @@ export async function getSessionPermissions(): Promise<{
   userId: string | null;
   permissions: PermissionKey[];
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { userId: null, permissions: [] };
-
-  const { data: staffRow } = await supabase
-    .from("staff")
-    .select("permissions, active")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!staffRow?.active) return { userId: user.id, permissions: [] };
-
-  return {
-    userId: user.id,
-    permissions: (staffRow.permissions as PermissionKey[]) ?? [],
-  };
+  const { userId, permissions } = await getCurrentStaff();
+  return { userId, permissions };
 }
 
 // Devolve null quando o utilizador tem pelo menos uma das permissões pedidas,

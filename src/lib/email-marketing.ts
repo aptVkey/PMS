@@ -327,14 +327,29 @@ export const TEMPLATE_VARIABLE_KEYS = [
   "check_out_time",
 ] as const satisfies readonly (keyof TemplateVariables)[];
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+}
+
 // Substitui {{variavel}} pelo valor correspondente. Variáveis desconhecidas ou
 // sem valor ficam como texto vazio, para nunca aparecer "{{...}}" por enviar.
+// Com html: true os valores são escapados: o nome do hóspede vem de fora
+// (Booking.com, formulário do site) e não pode injetar HTML/links no email.
 export function renderTemplate(
   text: string,
   variables: TemplateVariables,
+  options: { html?: boolean } = {},
 ): string {
   return text.replace(/{{\s*([a-z_]+)\s*}}/gi, (_match, key: string) => {
-    const value = variables[key as keyof TemplateVariables];
-    return value ?? "";
+    const value = variables[key as keyof TemplateVariables] ?? "";
+    return options.html ? escapeHtml(value) : value;
   });
 }

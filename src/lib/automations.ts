@@ -336,7 +336,9 @@ export async function runAutomations(): Promise<AutomationRunSummary> {
           propertyTimes.get(candidate.property_id) ?? DEFAULT_TIMES,
         );
         const subject = renderTemplate(template.subject, variables);
-        const html = renderTemplate(template.body_html, variables);
+        const html = renderTemplate(template.body_html, variables, {
+          html: true,
+        });
 
         // Reclama já a linha antes de enviar — é o índice único
         // (flow_step_id, booking_id) que impede duas execuções em paralelo

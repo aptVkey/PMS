@@ -41,7 +41,9 @@ export function PropertyCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[16px] font-semibold tracking-tight text-ink">{property.name}</p>
+          <p className="text-[16px] font-semibold tracking-tight text-ink">
+            {property.name}
+          </p>
           <p className="mt-1 text-[12px] text-ink-subdued">
             {PROPERTY_TYPE_LABELS[property.property_type]} · {unitCount}{" "}
             {unitCount === 1 ? "unidade" : "unidades"}

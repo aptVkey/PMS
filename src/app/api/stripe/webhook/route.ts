@@ -33,6 +33,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Checkout que expirou sem pagamento: a reserva pendente que segurava as
+  // datas é cancelada, para as noites voltarem a estar à venda.
+  if (event.type === "checkout.session.expired") {
+    const expiredBookingId = event.data.object.metadata?.booking_id;
+    if (expiredBookingId) {
+      const admin = createAdminClient();
+      if (!admin) {
+        return NextResponse.json(
+          { error: "Sem acesso à base." },
+          { status: 500 },
+        );
+      }
+      const { error } = await admin
+        .from("bookings")
+        .update({ status: "cancelada" })
+        .eq("id", expiredBookingId)
+        .eq("status", "pendente");
+      if (error) {
+        return NextResponse.json(
+          { error: "Falha a libertar a reserva." },
+          { status: 500 },
+        );
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type !== "checkout.session.completed") {
     // Devolvemos 200 para o Stripe não reenviar eventos que não tratamos.
     return NextResponse.json({ received: true });

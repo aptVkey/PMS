@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentStaff } from "@/lib/current-staff";
 import type { StaffMember } from "@/lib/staff";
 import type {
   ReportingBooking,
@@ -14,6 +15,8 @@ export default async function AlojamentoEstatisticasPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  // Já calculado pelo layout neste pedido (cache): não volta à rede.
+  const me = await getCurrentStaff();
 
   const { data: roomsData } = await supabase
     .from("rooms")
@@ -25,13 +28,11 @@ export default async function AlojamentoEstatisticasPage({
 
   const [
     { data: staff },
-    { data: authData },
     { data: bookings },
     { data: cleaningTasks },
     { data: maintenanceIssues },
   ] = await Promise.all([
     supabase.from("staff").select("*"),
-    supabase.auth.getUser(),
     supabase
       .from("bookings")
       .select(
@@ -53,7 +54,7 @@ export default async function AlojamentoEstatisticasPage({
       .in("room_id", roomIds),
   ]);
 
-  const currentUserId = authData.user?.id ?? "";
+  const currentUserId = me.userId ?? "";
   const staffList = (staff as StaffMember[]) ?? [];
   const currentStaff = staffList.find((member) => member.id === currentUserId);
   const permissions = currentStaff?.permissions ?? [];

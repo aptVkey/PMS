@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
+import { getCurrentStaff } from "@/lib/current-staff";
 import type { StaffMember } from "@/lib/staff";
 import type {
   ReportingBooking,
@@ -9,29 +11,37 @@ import { RelatoriosClient } from "./relatorios-client";
 
 export default async function RelatoriosPage() {
   const supabase = await createClient();
+  // Já calculado pelo layout neste pedido (cache): não volta à rede.
+  const me = await getCurrentStaff();
 
   const [
     { data: staff },
-    { data: authData },
     { data: rooms },
     { data: bookings },
     { data: cleaningTasks },
     { data: maintenanceIssues },
   ] = await Promise.all([
     supabase.from("staff").select("*"),
-    supabase.auth.getUser(),
     supabase.from("rooms").select("id, name"),
-    supabase
-      .from("bookings")
-      .select(
-        "id, check_in, check_out, status, total_amount, channel, guest_id, room_id, num_adults, num_children, num_infants, payments(amount), guest:guests(name, visit_count, nationality)",
-      )
-      .order("check_in", { ascending: false }),
-    supabase
-      .from("cleaning_tasks")
-      .select(
-        "id, status, started_at, completed_at, assignee:staff(hourly_rate)",
-      ),
+    fetchAll((from, to) =>
+      supabase
+        .from("bookings")
+        .select(
+          "id, check_in, check_out, status, total_amount, channel, guest_id, room_id, num_adults, num_children, num_infants, payments(amount), guest:guests(name, visit_count, nationality)",
+        )
+        .order("check_in", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAll((from, to) =>
+      supabase
+        .from("cleaning_tasks")
+        .select(
+          "id, status, started_at, completed_at, assignee:staff(hourly_rate)",
+        )
+        .order("id")
+        .range(from, to),
+    ),
     supabase
       .from("maintenance_issues")
       .select(
@@ -39,7 +49,7 @@ export default async function RelatoriosPage() {
       ),
   ]);
 
-  const currentUserId = authData.user?.id ?? "";
+  const currentUserId = me.userId ?? "";
   const staffList = (staff as StaffMember[]) ?? [];
   const currentStaff = staffList.find((member) => member.id === currentUserId);
   const permissions = currentStaff?.permissions ?? [];

@@ -1,37 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// "/p" é a página pública de cada alojamento: reserva direta, sem sessão.
-// O webhook do Stripe também chega sem sessão e seria redirecionado para
-// /login — a assinatura é o que o autentica, não um cookie.
-// O motor de automação também chega sem sessão (chamado pelo pg_cron) — é o
-// segredo partilhado que o autentica, não um cookie, tal como o webhook da
-// Stripe. A sincronização iCal é a mesma história (chamada pelo pg_cron), e a
-// exportação iCal é pedida diretamente pelo servidor da Booking.com/Airbnb,
-// que nunca tem sessão nenhuma.
-const PUBLIC_PATHS = [
-  "/login",
-  "/p/",
-  "/site",
-  "/api/stripe/webhook",
-  "/api/automations/run",
-  "/api/ical/sync",
-  "/api/ical/export/",
-  "/api/paybyrd/webhook",
-];
-
-const PATH_PERMISSIONS: Record<string, string[]> = {
-  "/alojamentos": ["quartos"],
-  "/equipas": ["equipas", "limpeza", "gerir_limpeza", "manutencao"],
-  "/hospedes": ["hospedes"],
-  "/reservas": ["reservas"],
-  "/automacao": ["automacao"],
-  "/relatorios": ["relatorios"],
-  "/integracoes": ["integracoes"],
-  "/inventario": ["inventario"],
-  "/caixa": ["caixa"],
-  "/email-marketing": ["marketing"],
-};
+import { isPublicPath as isPublic, requiredPermissionsFor } from "@/lib/access";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -57,13 +27,21 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() valida o token localmente (chaves ES256 do projeto) e renova
+  // a sessão quando é preciso — sem a ida à rede do getUser() em cada pedido.
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+  let userId =
+    typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+  // Recurso: se a validação local falhar, confirma no servidor de
+  // autenticação (como antes) em vez de mandar a pessoa para o login.
+  if (!userId && claimsError) {
+    const { data: fallback } = await supabase.auth.getUser();
+    userId = fallback.user?.id ?? null;
+  }
+  const user = userId ? { id: userId } : null;
 
-  const isPublicPath = PUBLIC_PATHS.some((path) =>
-    request.nextUrl.pathname.startsWith(path),
-  );
+  const isPublicPath = isPublic(request.nextUrl.pathname);
 
   if (!user && !isPublicPath) {
     const loginUrl = new URL("/login", request.url);
@@ -88,9 +66,9 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    const requiredPermissions = Object.entries(PATH_PERMISSIONS).find(
-      ([path]) => request.nextUrl.pathname.startsWith(path),
-    )?.[1];
+    const requiredPermissions = requiredPermissionsFor(
+      request.nextUrl.pathname,
+    );
 
     const permissions: string[] = staff?.permissions ?? [];
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import type { Booking } from "@/lib/bookings";
 import type { Room } from "@/lib/rooms";
 import type { Guest } from "@/lib/guests";
@@ -15,12 +16,23 @@ export default async function ReservasPage() {
     { data: ratePeriods },
     { data: dailyPrices },
   ] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("*, room:rooms(name), guest:guests(name), payments(*)")
-      .order("check_in", { ascending: false }),
+    fetchAll((from, to) =>
+      supabase
+        .from("bookings")
+        .select("*, room:rooms(name), guest:guests(name), payments(*)")
+        .order("check_in", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("rooms").select("*").order("name"),
-    supabase.from("guests").select("*").order("name"),
+    fetchAll((from, to) =>
+      supabase
+        .from("guests")
+        .select("*")
+        .order("name")
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("room_rate_periods").select("*"),
     supabase.from("room_daily_prices").select("*"),
   ]);

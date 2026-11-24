@@ -60,7 +60,10 @@ export function PropertyWizardStep1Modal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5">
+        <form
+          onSubmit={handleSubmit}
+          className="ui-form-scroll flex flex-col gap-5 overflow-y-auto px-6 py-5"
+        >
           <div className="flex flex-col gap-1.5">
             <label htmlFor="propertyName" className={labelClasses}>
               Nome do alojamento

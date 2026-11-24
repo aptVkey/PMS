@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import type { Property } from "@/lib/property";
 import type { Guest } from "@/lib/guests";
 import type {
@@ -36,14 +37,28 @@ export default async function EmailMarketingPage() {
       )
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase.from("email_sends").select("flow_step_id").eq("status", "sent"),
+    fetchAll<{ flow_step_id: string }>((from, to) =>
+      supabase
+        .from("email_sends")
+        .select("flow_step_id")
+        .eq("status", "sent")
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("properties").select("*").order("name"),
-    supabase.from("guests").select("*").order("name"),
+    fetchAll((from, to) =>
+      supabase
+        .from("guests")
+        .select("*")
+        .order("name")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const sendCounts: Record<string, number> = {};
   for (const row of sentRows ?? []) {
-    const id = row.flow_step_id as string;
+    const id = row.flow_step_id;
     sendCounts[id] = (sendCounts[id] ?? 0) + 1;
   }
 
