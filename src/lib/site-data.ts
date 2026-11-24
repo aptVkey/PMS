@@ -8,6 +8,8 @@ export type SiteProperty = {
   typeLabel: string;
   description: string | null;
   coverPhoto: string | null;
+  // Algumas fotografias extra para as secções editoriais da página inicial.
+  gallery: string[];
   photoCount: number;
   guests: number;
   bedrooms: number;
@@ -73,6 +75,7 @@ export async function loadSiteProperties(): Promise<SiteProperty[]> {
         PROPERTY_TYPE_LABELS[p.property_type as PropertyType] ?? "Alojamento",
       description: (p.description as string | null) || null,
       coverPhoto: photos[0] ?? null,
+      gallery: photos.slice(0, 8),
       photoCount: photos.length,
       guests: own.reduce(
         (sum, r) => sum + r.capacity_adults + r.capacity_children,

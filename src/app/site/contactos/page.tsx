@@ -18,22 +18,18 @@ export default function ContactPage() {
 
   return (
     <>
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-[1200px] px-6 py-24 text-center">
-          <p className="text-[12px] font-medium uppercase tracking-[0.3em] text-ink-subdued">
-            Contactos
-          </p>
-          <h1 className="mx-auto mt-4 max-w-2xl font-serif text-[40px] font-normal leading-tight tracking-tight text-ink sm:text-[54px]">
-            Vamos falar sobre a tua estadia
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-ink-muted">
-            Tens uma dúvida ou queres reservar? Escreve-nos e respondemos o mais
-            depressa possível.
-          </p>
-        </div>
+      <section className="mx-auto max-w-[1440px] px-5 pb-16 pt-16 sm:px-8 lg:px-12 lg:pb-24 lg:pt-24">
+        <p className="site-eyebrow text-ink-subdued">Contactos</p>
+        <h1 className="site-display mt-8 max-w-[13ch] text-[clamp(52px,8.5vw,136px)] text-ink">
+          Vamos falar sobre a tua <em className="text-action">estadia.</em>
+        </h1>
+        <p className="mt-8 max-w-xl text-[17px] leading-relaxed text-ink-muted">
+          Uma dúvida, um pedido especial ou datas que não encontras no
+          calendário? Escreve-nos. Do outro lado está uma pessoa, não um robô.
+        </p>
       </section>
 
-      <section className="mx-auto grid max-w-[1200px] gap-12 px-6 py-16 lg:grid-cols-[1fr_340px]">
+      <section className="mx-auto grid max-w-[1440px] gap-12 border-t border-ink/10 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_380px] lg:px-12 lg:py-24">
         <ContactForm />
 
         <aside className="flex flex-col gap-4">

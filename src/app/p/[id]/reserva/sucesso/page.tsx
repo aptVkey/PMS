@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { SiteFrame } from "@/components/site/site-frame";
 
 export const metadata = { title: "Reserva confirmada" };
 
@@ -14,30 +15,44 @@ export default async function ReservaSucessoPage({
   const { reserva } = await searchParams;
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-surface-1 px-6 py-12">
-      <div className="flex max-w-lg flex-col items-center gap-4 rounded-lg border border-border bg-canvas p-10 text-center shadow-card">
-        <CheckCircle2 className="h-12 w-12 text-success" strokeWidth={1.5} />
-        <h1 className="text-[24px] font-bold text-ink">Pagamento recebido</h1>
-        <p className="text-body text-ink-muted">
+    <SiteFrame>
+      <section className="mx-auto flex min-h-[70svh] max-w-[1200px] flex-col justify-center px-5 py-24 sm:px-8">
+        <p className="site-eyebrow text-ink-subdued">Pagamento recebido</p>
+        <h1 className="site-display mt-6 max-w-[14ch] text-[clamp(52px,8vw,124px)] text-ink">
+          Está feito. <em className="text-action">Até breve.</em>
+        </h1>
+        <p className="mt-8 max-w-xl text-[17px] leading-relaxed text-ink-muted">
           A tua reserva está confirmada
           {reserva ? (
             <>
               {" "}
               com a referência{" "}
-              <strong className="text-ink">
+              <strong className="font-semibold text-ink">
                 RES-{reserva.padStart(4, "0")}
               </strong>
             </>
           ) : null}
-          . Vais receber os detalhes por email.
+          . Vais receber os detalhes por email — e, antes da chegada, tudo o que
+          precisas para entrar sem complicações.
         </p>
-        <Link
-          href={`/p/${id}`}
-          className="mt-2 min-h-11 rounded-md border border-border px-4 py-2.5 text-body font-semibold text-ink transition-colors duration-fast ease-standard hover:bg-surface-1"
-        >
-          Voltar ao alojamento
-        </Link>
-      </div>
-    </main>
+        <div className="mt-12 flex flex-wrap gap-3">
+          <Link
+            href={`/p/${id}`}
+            className="group inline-flex h-14 items-center gap-3 rounded-pill bg-ink pl-7 pr-2 text-[15px] font-semibold text-canvas"
+          >
+            Voltar à casa
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas text-ink transition-transform duration-500 group-hover:rotate-45">
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+            </span>
+          </Link>
+          <Link
+            href="/site/contactos"
+            className="inline-flex h-14 items-center rounded-pill border border-ink/25 px-7 text-[15px] font-medium text-ink transition-colors hover:border-ink"
+          >
+            Falar connosco
+          </Link>
+        </div>
+      </section>
+    </SiteFrame>
   );
 }

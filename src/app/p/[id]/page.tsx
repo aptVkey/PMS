@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BedDouble, Bath, Check, Moon, Users } from "lucide-react";
+import { SiteFrame } from "@/components/site/site-frame";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createStripeClient } from "@/lib/stripe";
 import { formatBedCount, ROOM_TYPE_LABELS, type Room } from "@/lib/rooms";
@@ -82,7 +83,9 @@ export async function generateMetadata({
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[20px] font-bold leading-tight text-ink">{children}</h2>
+    <h2 className="font-serif text-[30px] leading-tight tracking-tight text-ink">
+      {children}
+    </h2>
   );
 }
 
@@ -162,208 +165,223 @@ export default async function PublicPropertyPage({
     // pb-24: espaço para a barra fixa do motor de reservas em mobile não
     // tapar o rodapé; lg: ela deixa de ser fixa, por isso o padding some. Só
     // se aplica quando a barra existe de facto (há unidades para reservar).
-    <main
-      className={`min-h-svh bg-canvas ${rooms.length > 0 ? "pb-24 lg:pb-0" : ""}`}
-    >
-      <header className="border-b border-border px-6 py-4">
-        <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-4">
-          <p className="text-body font-bold text-primary">{property.name}</p>
+    <SiteFrame>
+      <div className={rooms.length > 0 ? "pb-24 lg:pb-0" : ""}>
+        <div className="mx-auto max-w-[1200px] px-5 pb-16 pt-8 sm:px-8 lg:pt-12">
           <Link
             href="/site#alojamentos"
-            className="flex items-center gap-1.5 text-body font-semibold text-ink-muted hover:text-ink"
+            className="group inline-flex items-center gap-2 text-[14px] font-medium text-ink-muted transition-colors hover:text-ink"
           >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Todos os alojamentos
+            <ArrowLeft
+              className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1"
+              strokeWidth={1.75}
+            />
+            Todas as casas
           </Link>
-        </div>
-      </header>
 
-      <div className="mx-auto max-w-[1120px] px-6 py-6">
-        <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-ink">
-          {property.name}
-        </h1>
-
-        <div className="mt-4">
-          <PhotoMosaic photos={photos} alt={property.name} />
-        </div>
-
-        {rooms.length === 0 ? (
-          <div className="mt-8 rounded-lg border border-dashed border-border p-12 text-center">
-            <p className="text-body font-semibold text-ink">
-              Sem unidades disponíveis
-            </p>
-            <p className="mt-1 text-body text-ink-subdued">
-              Este alojamento ainda não tem unidades publicadas.
-            </p>
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="site-eyebrow text-ink-subdued">
+                {roomTypeLabel ?? "Alojamento"}
+              </p>
+              <h1 className="site-display mt-4 text-[clamp(52px,8vw,120px)] text-ink">
+                {property.name}
+              </h1>
+            </div>
+            {rooms.length > 0 && (
+              <p className="pb-2 text-[15px] text-ink-muted">
+                {capacity} {capacity === 1 ? "hóspede" : "hóspedes"} ·{" "}
+                {bedroomCount} {bedroomCount === 1 ? "quarto" : "quartos"} ·{" "}
+                {bathroomCount}{" "}
+                {bathroomCount === 1 ? "casa de banho" : "casas de banho"}
+              </p>
+            )}
           </div>
-        ) : (
-          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_372px] lg:items-start lg:gap-16">
-            <div className="flex flex-col">
-              <div className="pb-6">
-                <h2 className="text-[22px] font-bold leading-tight text-ink">
-                  {roomTypeLabel ?? "Alojamento"} em {property.name}
-                </h2>
-                <p className="mt-1 text-body text-ink-muted">
-                  {capacity} {capacity === 1 ? "hóspede" : "hóspedes"} ·{" "}
-                  {bedroomCount} {bedroomCount === 1 ? "quarto" : "quartos"} ·{" "}
-                  {bedCount} {bedCount === 1 ? "cama" : "camas"} ·{" "}
-                  {bathroomCount}{" "}
-                  {bathroomCount === 1 ? "casa de banho" : "casas de banho"}
-                </p>
-              </div>
 
-              {description && (
-                <div className="border-t border-border py-6">
-                  <p className="whitespace-pre-line text-body leading-relaxed text-ink-muted">
-                    {description}
+          <div className="mt-10">
+            <PhotoMosaic photos={photos} alt={property.name} />
+          </div>
+
+          {rooms.length === 0 ? (
+            <div className="mt-8 rounded-lg border border-dashed border-border p-12 text-center">
+              <p className="text-body font-semibold text-ink">
+                Sem unidades disponíveis
+              </p>
+              <p className="mt-1 text-body text-ink-subdued">
+                Este alojamento ainda não tem unidades publicadas.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_372px] lg:items-start lg:gap-16">
+              <div className="flex flex-col">
+                <div className="pb-6">
+                  <h2 className="font-serif text-[32px] leading-tight tracking-tight text-ink">
+                    {roomTypeLabel ?? "Alojamento"} em {property.name}
+                  </h2>
+                  <p className="mt-1 text-body text-ink-muted">
+                    {capacity} {capacity === 1 ? "hóspede" : "hóspedes"} ·{" "}
+                    {bedroomCount} {bedroomCount === 1 ? "quarto" : "quartos"} ·{" "}
+                    {bedCount} {bedCount === 1 ? "cama" : "camas"} ·{" "}
+                    {bathroomCount}{" "}
+                    {bathroomCount === 1 ? "casa de banho" : "casas de banho"}
                   </p>
                 </div>
-              )}
 
-              {sleepingAreas.length > 0 && (
-                <div className="border-t border-border py-6">
-                  <SectionHeading>Onde irá dormir</SectionHeading>
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {sleepingAreas.map((area) => (
-                      <div
-                        key={area.key}
-                        className="rounded-lg border border-border p-4"
-                      >
-                        <BedDouble
-                          className="h-6 w-6 text-ink"
-                          strokeWidth={1.5}
-                        />
-                        <p className="mt-3 text-body font-semibold text-ink">
-                          {area.label}
-                        </p>
-                        <p className="text-[13px] text-ink-muted">
-                          {area.beds
-                            .map((bed) => formatBedCount(bed.count, bed.type))
-                            .join(", ")}
-                        </p>
-                      </div>
-                    ))}
+                {description && (
+                  <div className="border-t border-border py-6">
+                    <p className="whitespace-pre-line text-body leading-relaxed text-ink-muted">
+                      {description}
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {amenities.length > 0 && (
-                <div className="border-t border-border py-6">
-                  <SectionHeading>O que este alojamento oferece</SectionHeading>
-                  <ul className="mt-4 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-                    {amenities.map((amenity) => (
-                      <li
-                        key={amenity}
-                        className="flex items-center gap-3 border-b border-border py-3 text-body text-ink"
-                      >
-                        <Check
-                          className="h-4 w-4 shrink-0 text-ink-muted"
-                          strokeWidth={2}
-                        />
-                        {amenity}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {rooms.length > 1 && (
-                <div className="border-t border-border py-6">
-                  <SectionHeading>Unidades disponíveis</SectionHeading>
-                  <div className="mt-4 flex flex-col divide-y divide-border">
-                    {rooms.map((room) => (
-                      <div
-                        key={room.id}
-                        className="flex flex-wrap items-baseline justify-between gap-2 py-3"
-                      >
-                        <div>
-                          <p className="text-body font-semibold text-ink">
-                            {room.name}
+                {sleepingAreas.length > 0 && (
+                  <div className="border-t border-border py-6">
+                    <SectionHeading>Onde irá dormir</SectionHeading>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {sleepingAreas.map((area) => (
+                        <div
+                          key={area.key}
+                          className="rounded-lg border border-border p-4"
+                        >
+                          <BedDouble
+                            className="h-6 w-6 text-ink"
+                            strokeWidth={1.5}
+                          />
+                          <p className="mt-3 text-body font-semibold text-ink">
+                            {area.label}
                           </p>
                           <p className="text-[13px] text-ink-muted">
-                            {ROOM_TYPE_LABELS[room.type]}
-                            {room.size_m2 ? ` · ${room.size_m2} m²` : ""} ·{" "}
-                            {room.capacity_adults + room.capacity_children}{" "}
-                            hóspedes
+                            {area.beds
+                              .map((bed) => formatBedCount(bed.count, bed.type))
+                              .join(", ")}
                           </p>
                         </div>
-                        {room.base_price > 0 && (
-                          <p className="text-body font-bold text-ink">
-                            {currencyFormatter.format(room.base_price)}
-                            <span className="font-normal text-ink-muted">
-                              {" "}
-                              / noite
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="border-t border-border py-6">
-                <SectionHeading>Coisas a saber</SectionHeading>
-                <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3">
-                  <div>
-                    <p className="text-body font-semibold text-ink">
-                      Capacidade
-                    </p>
-                    <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
-                      <Users className="h-4 w-4 shrink-0" strokeWidth={2} />
-                      Até {capacity} {capacity === 1 ? "hóspede" : "hóspedes"}
-                    </p>
-                    <p className="mt-1 flex items-center gap-2 text-[13px] text-ink-muted">
-                      <Bath className="h-4 w-4 shrink-0" strokeWidth={2} />
-                      {bathroomCount}{" "}
-                      {bathroomCount === 1 ? "casa de banho" : "casas de banho"}
-                    </p>
+                {amenities.length > 0 && (
+                  <div className="border-t border-border py-6">
+                    <SectionHeading>
+                      O que este alojamento oferece
+                    </SectionHeading>
+                    <ul className="mt-4 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                      {amenities.map((amenity) => (
+                        <li
+                          key={amenity}
+                          className="flex items-center gap-3 border-b border-border py-3 text-body text-ink"
+                        >
+                          <Check
+                            className="h-4 w-4 shrink-0 text-ink-muted"
+                            strokeWidth={2}
+                          />
+                          {amenity}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div>
-                    <p className="text-body font-semibold text-ink">Estadia</p>
-                    <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
-                      <Moon className="h-4 w-4 shrink-0" strokeWidth={2} />
-                      {minStay
-                        ? `Mínimo de ${minStay} ${minStay === 1 ? "noite" : "noites"}`
-                        : "Sem estadia mínima"}
-                    </p>
+                )}
+
+                {rooms.length > 1 && (
+                  <div className="border-t border-border py-6">
+                    <SectionHeading>Unidades disponíveis</SectionHeading>
+                    <div className="mt-4 flex flex-col divide-y divide-border">
+                      {rooms.map((room) => (
+                        <div
+                          key={room.id}
+                          className="flex flex-wrap items-baseline justify-between gap-2 py-3"
+                        >
+                          <div>
+                            <p className="text-body font-semibold text-ink">
+                              {room.name}
+                            </p>
+                            <p className="text-[13px] text-ink-muted">
+                              {ROOM_TYPE_LABELS[room.type]}
+                              {room.size_m2
+                                ? ` · ${room.size_m2} m²`
+                                : ""} ·{" "}
+                              {room.capacity_adults + room.capacity_children}{" "}
+                              hóspedes
+                            </p>
+                          </div>
+                          {room.base_price > 0 && (
+                            <p className="text-body font-bold text-ink">
+                              {currencyFormatter.format(room.base_price)}
+                              <span className="font-normal text-ink-muted">
+                                {" "}
+                                / noite
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-body font-semibold text-ink">
-                      Pagamento
-                    </p>
-                    <p className="mt-2 text-[13px] text-ink-muted">
-                      {paymentsEnabled
-                        ? "Pagamento seguro por cartão no momento da reserva."
-                        : "O anfitrião contacta-te para combinar o pagamento."}
-                    </p>
+                )}
+
+                <div className="border-t border-border py-6">
+                  <SectionHeading>Coisas a saber</SectionHeading>
+                  <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3">
+                    <div>
+                      <p className="text-body font-semibold text-ink">
+                        Capacidade
+                      </p>
+                      <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
+                        <Users className="h-4 w-4 shrink-0" strokeWidth={2} />
+                        Até {capacity} {capacity === 1 ? "hóspede" : "hóspedes"}
+                      </p>
+                      <p className="mt-1 flex items-center gap-2 text-[13px] text-ink-muted">
+                        <Bath className="h-4 w-4 shrink-0" strokeWidth={2} />
+                        {bathroomCount}{" "}
+                        {bathroomCount === 1
+                          ? "casa de banho"
+                          : "casas de banho"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-body font-semibold text-ink">
+                        Estadia
+                      </p>
+                      <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
+                        <Moon className="h-4 w-4 shrink-0" strokeWidth={2} />
+                        {minStay
+                          ? `Mínimo de ${minStay} ${minStay === 1 ? "noite" : "noites"}`
+                          : "Sem estadia mínima"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-body font-semibold text-ink">
+                        Pagamento
+                      </p>
+                      <p className="mt-2 text-[13px] text-ink-muted">
+                        {paymentsEnabled
+                          ? "Pagamento seguro por cartão no momento da reserva."
+                          : "O anfitrião contacta-te para combinar o pagamento."}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="lg:sticky lg:top-6">
-              <DirectBookingForm
-                propertyId={property.id}
-                rooms={rooms}
-                ratePeriods={periods}
-                dailyPrices={dailyPrices}
-                bookings={bookings}
-                paymentsEnabled={paymentsEnabled}
-                fromPrice={
-                  precoDesde === Number.POSITIVE_INFINITY ? null : precoDesde
-                }
-              />
+              <div className="lg:sticky lg:top-24">
+                <DirectBookingForm
+                  propertyId={property.id}
+                  rooms={rooms}
+                  ratePeriods={periods}
+                  dailyPrices={dailyPrices}
+                  bookings={bookings}
+                  paymentsEnabled={paymentsEnabled}
+                  fromPrice={
+                    precoDesde === Number.POSITIVE_INFINITY ? null : precoDesde
+                  }
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      <footer className="border-t border-border px-6 py-8">
-        <p className="mx-auto max-w-[1120px] text-[13px] text-ink-subdued">
-          © {new Date().getFullYear()} {property.name}
-        </p>
-      </footer>
-    </main>
+    </SiteFrame>
   );
 }
